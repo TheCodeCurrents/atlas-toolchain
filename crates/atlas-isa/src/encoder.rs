@@ -1,24 +1,42 @@
 use crate::ParsedInstruction;
 use crate::encoding_error::EncodingError;
-use crate::operands::{BranchOperand, MOffset, RegisterPairIdentifier, XOperand};
-use crate::opcode::{AluOp, ImmOp, MemOp, BranchCond, StackOp, PortOp, XTypeOp};
+use crate::operands::{BranchOperand, MOffset, Operand, RegisterPairIdentifier, XOperand};
+use crate::opcode::{AluOp, ImmOp, MemOp, BranchCond, StackOp, PeekPokeOp, XTypeOp};
 
 
 impl ParsedInstruction {
     pub fn encode(&self) -> Result<u16, EncodingError> {
         match &self {
             ParsedInstruction::A { op, dest, source, line: _, source_file: _ } => {
-                let encoded = ((*dest as u16) << 12) 
-                    | (*source as u16)
-                    | ((*op as u16));
+                // A-type: [15:12]=0000, [11:8]=dest, [7:4]=source, [3:0]=op
+                let encoded = ((*dest as u16) << 8)
+                    | ((*source as u16) << 4)
+                    | (*op as u16);
                 Ok(encoded)
             }
-            ParsedInstruction::I { op, dest, immediate, line: _, source_file: _ } => {
+            ParsedInstruction::I { op, dest, immediate, line, source_file: _ } => {
+                let imm_val = match immediate {
+                    Operand::Immediate(val) => {
+                        if *val > 0xFF {
+                            return Err(EncodingError {
+                                line: *line,
+                                message: format!("Immediate value 0x{:x} exceeds 8-bit range", val),
+                            });
+                        }
+                        *val
+                    }
+                    Operand::Label(name) => {
+                        return Err(EncodingError {
+                            line: *line,
+                            message: format!("Cannot encode unresolved label reference: '{}'", name),
+                        });
+                    }
+                };
                 let type_field = 1 + *op as u16;
 
                 let encoded: u16 = ((type_field) << 12)
                     | ((*dest as u16) << 8)
-                    | (*immediate as u16);
+                    | (imm_val as u16);
 
                 Ok(encoded)
             }
@@ -39,7 +57,15 @@ impl ParsedInstruction {
             }
             ParsedInstruction::BI { absolute, cond, operand, line, source_file: _ } => {
                 let address = match operand {
-                    BranchOperand::Immediate(addr) => *addr,
+                    BranchOperand::Immediate(addr) => {
+                        if *addr > 0xFF {
+                            return Err(EncodingError {
+                                line: *line,
+                                message: format!("Branch address 0x{:x} exceeds 8-bit range", addr),
+                            });
+                        }
+                        *addr
+                    }
                     BranchOperand::Label(name) => {
                         return Err(EncodingError {
                             line: *line,
@@ -71,11 +97,28 @@ impl ParsedInstruction {
 
                 Ok(encoded)
             }
-            ParsedInstruction::P { op, register, offset, line: _, source_file: _ } => {
+            ParsedInstruction::P { op, register, offset, line, source_file: _ } => {
+                let offset_val = match offset {
+                    Operand::Immediate(val) => {
+                        if *val > 0xFF {
+                            return Err(EncodingError {
+                                line: *line,
+                                message: format!("Peek/Poke offset 0x{:x} exceeds 8-bit range", val),
+                            });
+                        }
+                        *val
+                    }
+                    Operand::Label(name) => {
+                        return Err(EncodingError {
+                            line: *line,
+                            message: format!("Cannot encode unresolved label reference: '{}'", name),
+                        });
+                    }
+                };
                 let encoded = (11 << 12)
                     | ((*op as u16) << 11)
                     | ((*register as u16) << 8)
-                    | (*offset as u16);
+                    | (offset_val as u16);
 
                 Ok(encoded)
             }
@@ -107,9 +150,9 @@ impl ParsedInstruction {
 
         match opcode {
             0 => {
-                // A-type: bits [15:12]=0000, operation in [4:0], source in [7:0], dest in [15:12]
-                let dest = ((encoded >> 12) & 0xF) as u8;
-                let source = (encoded & 0xFF) as u8;
+                // A-type: [15:12]=0000, [11:8]=dest, [7:4]=source, [3:0]=op
+                let dest = ((encoded >> 8) & 0xF) as u8;
+                let source = ((encoded >> 4) & 0xF) as u8;
                 let op_val = (encoded & 0xF) as u8;
 
                 let op = match op_val {
@@ -144,7 +187,7 @@ impl ParsedInstruction {
                 // I-type: bits [15:12]=type_field (1+operation), dest in [11:8], imm in [7:0]
                 let op_val = (opcode - 1) as u8;
                 let dest = ((encoded >> 8) & 0xF) as u8;
-                let immediate = (encoded & 0xFF) as u8;
+                let immediate = (encoded & 0xFF) as u16;
 
                 let op = match op_val {
                     0 => ImmOp::LDI,
@@ -158,7 +201,7 @@ impl ParsedInstruction {
                 Ok(ParsedInstruction::I {
                     op,
                     dest,
-                    immediate,
+                    immediate: Operand::Immediate(immediate),
                     line: 0,
                     source_file: None,
                 })
@@ -189,7 +232,7 @@ impl ParsedInstruction {
                 // BI-type: bits [15:12]=1000, absolute in [11], condition in [10:8], address in [7:0]
                 let absolute = ((encoded >> 11) & 1) != 0;
                 let cond_val = ((encoded >> 8) & 0x7) as u8;
-                let address = (encoded & 0xFF) as u8;
+                let address = (encoded & 0xFF) as u16;
 
                 let cond = match cond_val {
                     0 => BranchCond::Unconditional,
@@ -260,18 +303,17 @@ impl ParsedInstruction {
                 // P-type: bits [15:12]=1011, operation in [11], register in [10:8], offset in [7:0]
                 let op_val = ((encoded >> 11) & 1) as u8;
                 let register = ((encoded >> 8) & 0x7) as u8;
-                let offset = (encoded & 0xFF) as u8;
-
+                let offset = (encoded & 0xFF) as u16;
                 let op = match op_val {
-                    0 => PortOp::PEEK,
-                    1 => PortOp::POKE,
+                    0 => PeekPokeOp::POKE,
+                    1 => PeekPokeOp::PEEK,
                     _ => return Err(format!("Invalid port operation: {}", op_val)),
                 };
 
                 Ok(ParsedInstruction::P {
                     op,
                     register,
-                    offset,
+                    offset: Operand::Immediate(offset),
                     line: 0,
                     source_file: None,
                 })

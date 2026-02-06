@@ -1,4 +1,4 @@
-use atlas_isa::{AluOp, BranchCond, BranchOperand, ImmOp, Mnemonic, MemOp, PortOp, ParsedInstruction, StackOp, XTypeOp, instruction::InstructionFormat, operands::{MOffset, RegisterPairIdentifier, XOperand}};
+use atlas_isa::{AluOp, BranchCond, BranchOperand, ImmOp, Mnemonic, MemOp, Operand, PeekPokeOp, ParsedInstruction, StackOp, XTypeOp, instruction::InstructionFormat, operands::{MOffset, RegisterPairIdentifier, XOperand}};
 use crate::lexer::{Directive, LexError, Lexer, SpannedToken, Token};
 
 use crate::{parser::error::ParseError, parser::symbols::SymbolTable};
@@ -9,14 +9,16 @@ pub struct Parser<'a> {
     pos: u32,
     symbols: SymbolTable,
     last_line: usize,
+    /// Single-token lookahead buffer used when peeking after a label definition.
+    pending: Option<SpannedToken>,
 }
 
 impl<'a> Iterator for Parser<'a> {
     type Item = Result<ParsedInstruction, ParseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // get next token from lexer
-        let spanned = match self.lexer.next() {
+        // get next token, draining the lookahead buffer first
+        let spanned = match self.pending.take().map(Ok).or_else(|| self.lexer.next()) {
             Some(Ok(token)) => token,
             Some(Err(err)) => return Some(Err(self.lex_error(err))),
             None => return None,
@@ -40,8 +42,43 @@ impl<'a> Iterator for Parser<'a> {
                 self.next()
             }
             Token::LabelDef(name) => {
-                // handle label definitions here
-                self.symbols.insert(name, crate::parser::symbols::Symbol::Label(self.pos));
+                // Peek at the next token to see if a directive follows.
+                let next = match self.lexer.next() {
+                    Some(Ok(tok)) => Some(tok),
+                    Some(Err(err)) => return Some(Err(self.lex_error(err))),
+                    None => None,
+                };
+
+                match next {
+                    Some(SpannedToken { token: Token::Directive(Directive::Imm), .. }) => {
+                        // label: .imm <value>
+                        let val_tok = match self.next_token() {
+                            Ok(t) => t,
+                            Err(e) => return Some(Err(e)),
+                        };
+                        let value = match val_tok.token {
+                            Token::Immediate(imm) => imm.value as u16,
+                            other => {
+                                return Some(Err(ParseError::UnexpectedToken {
+                                    line: val_tok.span.line,
+                                    expected: "immediate value after .imm",
+                                    found: Self::token_description(&other),
+                                }));
+                            }
+                        };
+                        self.symbols.insert(name, crate::parser::symbols::Symbol::Constant(value));
+                    }
+                    Some(tok) => {
+                        // No directive – this is a normal positional label.
+                        self.symbols.insert(name, crate::parser::symbols::Symbol::Label(self.pos));
+                        // Put the token back so it gets processed normally.
+                        self.pending = Some(tok);
+                    }
+                    None => {
+                        // Label at end-of-file.
+                        self.symbols.insert(name, crate::parser::symbols::Symbol::Label(self.pos));
+                    }
+                }
 
                 // call again so it returns the next instruction
                 self.next()
@@ -72,6 +109,7 @@ impl<'a> Parser<'a> {
             pos: 0,
             symbols: SymbolTable::new(),
             last_line: 1,
+            pending: None,
         }
     }
 
@@ -123,10 +161,22 @@ impl<'a> Parser<'a> {
                 }
                 self.skip_to_line_end()
             }
+            Directive::Imm => {
+                // .imm without a preceding label is invalid
+                Err(ParseError::UnexpectedToken {
+                    line: self.last_line,
+                    expected: "label definition before .imm",
+                    found: ".imm directive".to_string(),
+                })
+            }
         }
     }
 
     fn next_token(&mut self) -> Result<SpannedToken, ParseError> {
+        if let Some(tok) = self.pending.take() {
+            self.last_line = tok.span.line;
+            return Ok(tok);
+        }
         match self.lexer.next() {
             Some(Ok(token)) => {
                 self.last_line = token.span.line;
@@ -156,13 +206,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_immediate(&mut self) -> Result<i32, ParseError> {
+    /// Expect either an immediate value or a label reference, returning an `Operand`.
+    fn expect_immediate_or_label(&mut self) -> Result<Operand, ParseError> {
         let token = self.next_token()?;
         match token.token {
-            Token::Immediate(imm) => Ok(imm.value),
+            Token::Immediate(imm) => Ok(Operand::Immediate(imm.value as u16)),
+            Token::LabelRef(name) => Ok(Operand::Label(name)),
             other => Err(ParseError::UnexpectedToken {
                 line: token.span.line,
-                expected: "immediate",
+                expected: "immediate or label",
                 found: Self::token_description(&other),
             }),
         }
@@ -206,6 +258,14 @@ impl<'a> Parser<'a> {
                         line,
                         details: format!("Instruction '{}' is not a valid ALU op", instruction.mnemonic()),
                     })?;
+
+                // r0 is hardwired to zero; CMP and TST only set flags so they're fine
+                if rd == 0 && !matches!(op, AluOp::CMP | AluOp::TST) {
+                    return Err(ParseError::WriteToR0 {
+                        line,
+                        instruction: instruction.mnemonic().to_string(),
+                    });
+                }
                 
                 Ok(ParsedInstruction::A {
                     op,
@@ -216,10 +276,10 @@ impl<'a> Parser<'a> {
                 })
             },
             InstructionFormat::I => {
-                // I-type: rd, immediate
+                // I-type: rd, immediate or label
                 let rd = self.expect_register()?;
                 self.expect_comma()?;
-                let imm = self.expect_immediate()?;
+                let imm = self.expect_immediate_or_label()?;
                 self.expect_newline()?;
 
                 let op = ImmOp::from_instruction(instruction)
@@ -228,10 +288,17 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid immediate op", instruction.mnemonic()),
                     })?;
 
+                if rd == 0 {
+                    return Err(ParseError::WriteToR0 {
+                        line,
+                        instruction: instruction.mnemonic().to_string(),
+                    });
+                }
+
                 Ok(ParsedInstruction::I {
                     op,
                     dest: rd,
-                    immediate: imm as u8,
+                    immediate: imm,
                     line,
                     source_file: None,
                 })
@@ -335,6 +402,13 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid memory op", instruction.mnemonic()),
                     })?;
 
+                if rd == 0 && op == MemOp::LD {
+                    return Err(ParseError::WriteToR0 {
+                        line,
+                        instruction: instruction.mnemonic().to_string(),
+                    });
+                }
+
                 Ok(ParsedInstruction::M {
                     op,
                     dest: rd,
@@ -371,7 +445,7 @@ impl<'a> Parser<'a> {
                             Ok(ParsedInstruction::BI {
                                 absolute: false,
                                 cond,
-                                operand: BranchOperand::Immediate(imm.value as u8),
+                                operand: BranchOperand::Immediate(imm.value as u16),
                                 line,
                                 source_file: None,
                             })
@@ -381,7 +455,7 @@ impl<'a> Parser<'a> {
                             Ok(ParsedInstruction::BI {
                                 absolute: true,
                                 cond,
-                                operand: BranchOperand::Immediate(imm.value as u8),
+                                operand: BranchOperand::Immediate(imm.value as u16),
                                 line,
                                 source_file: None,
                             })
@@ -434,6 +508,13 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid stack op", instruction.mnemonic()),
                     })?;
 
+                if reg == 0 && op == StackOp::POP {
+                    return Err(ParseError::WriteToR0 {
+                        line,
+                        instruction: instruction.mnemonic().to_string(),
+                    });
+                }
+
                 Ok(ParsedInstruction::S {
                     op,
                     register: reg,
@@ -442,22 +523,29 @@ impl<'a> Parser<'a> {
                 })
             },
             InstructionFormat::P => {
-                // P-type: register, offset
+                // P-type: register, offset (immediate or label)
                 let reg = self.expect_register()?;
                 self.expect_comma()?;
-                let offset = self.expect_immediate()?;
+                let offset = self.expect_immediate_or_label()?;
                 self.expect_newline()?;
 
-                let op = PortOp::from_instruction(instruction)
+                let op = PeekPokeOp::from_instruction(instruction)
                     .ok_or(ParseError::InvalidParameters {
                         line,
                         details: format!("Instruction '{}' is not a valid port op", instruction.mnemonic()),
                     })?;
 
+                if reg == 0 && op == PeekPokeOp::PEEK {
+                    return Err(ParseError::WriteToR0 {
+                        line,
+                        instruction: instruction.mnemonic().to_string(),
+                    });
+                }
+
                 Ok(ParsedInstruction::P {
                     op,
                     register: reg,
-                    offset: offset as u8,
+                    offset,
                     line,
                     source_file: None,
                 })
@@ -467,7 +555,7 @@ impl<'a> Parser<'a> {
                 let next_tok = self.next_token()?;
                 
                 let operand = match next_tok.token {
-                    Token::NewLine => {
+                    Token::NewLine | Token::EoF => {
                         // No operands
                         XOperand::None
                     },
@@ -484,7 +572,7 @@ impl<'a> Parser<'a> {
                                 self.expect_newline()?;
                                 XOperand::Registers(reg, reg2)
                             },
-                            Token::NewLine => {
+                            Token::NewLine | Token::EoF => {
                                 XOperand::Register(reg)
                             },
                             other => {

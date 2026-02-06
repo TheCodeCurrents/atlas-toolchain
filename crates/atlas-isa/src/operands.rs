@@ -19,14 +19,18 @@ pub enum MOffset {
     SR(RegisterIdentifier),
 }
 
-/// Branch operand - can be an immediate address or a label reference
+/// A value that is either a resolved immediate or an unresolved label reference.
+/// Used anywhere an immediate operand can also be specified via a label.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BranchOperand {
-    /// Direct immediate address (resolved)
-    Immediate(u8),
+pub enum Operand {
+    /// Resolved immediate value
+    Immediate(u16),
     /// Reference to a label (to be resolved by linker)
     Label(String),
 }
+
+/// Backward-compatible alias – branches historically used this name.
+pub type BranchOperand = Operand;
 
 /// Operand for extended (X-type) instructions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

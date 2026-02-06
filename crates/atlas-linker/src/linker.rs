@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use atlas_isa::{BranchOperand, ParsedInstruction};
+use atlas_isa::{Operand, ParsedInstruction};
 
 use crate::error::{LinkerError, LinkerErrorKind};
 
@@ -11,7 +11,7 @@ pub struct LabelMap {
 
 #[derive(Debug, Clone)]
 pub struct LabelInfo {
-    pub address: u8,
+    pub address: u16,
     pub source_file: Option<String>,
 }
 
@@ -23,7 +23,7 @@ impl LabelMap {
     }
 
     /// Insert a label and its resolved address
-    pub fn insert(&mut self, label: String, address: u8) {
+    pub fn insert(&mut self, label: String, address: u16) {
         self.labels.insert(
             label,
             LabelInfo {
@@ -34,7 +34,7 @@ impl LabelMap {
     }
 
     /// Insert a label with its resolved address and source file
-    pub fn insert_with_source(&mut self, label: String, address: u8, source_file: String) {
+    pub fn insert_with_source(&mut self, label: String, address: u16, source_file: String) {
         self.labels.insert(
             label,
             LabelInfo {
@@ -45,7 +45,7 @@ impl LabelMap {
     }
 
     /// Look up a label's address
-    pub fn get(&self, label: &str) -> Option<u8> {
+    pub fn get(&self, label: &str) -> Option<u16> {
         self.labels.get(label).map(|info| info.address)
     }
 
@@ -67,12 +67,12 @@ impl Linker {
     }
 
     /// Register a label with its resolved address
-    pub fn register_label(&mut self, label: String, address: u8) {
+    pub fn register_label(&mut self, label: String, address: u16) {
         self.label_map.insert(label, address);
     }
 
     /// Register a label with its resolved address and source file
-    pub fn register_label_with_source(&mut self, label: String, address: u8, source_file: String) {
+    pub fn register_label_with_source(&mut self, label: String, address: u16, source_file: String) {
         self.label_map.insert_with_source(label, address, source_file);
     }
 
@@ -88,21 +88,18 @@ impl Linker {
     /// Resolve labels in a single instruction
     fn resolve_instruction(&self, instr: ParsedInstruction) -> Result<ParsedInstruction, LinkerError> {
         match instr {
+            ParsedInstruction::I { op, dest, immediate, line, source_file } => {
+                let resolved = self.resolve_operand(&immediate, line, &source_file)?;
+                Ok(ParsedInstruction::I {
+                    op,
+                    dest,
+                    immediate: resolved,
+                    line,
+                    source_file,
+                })
+            }
             ParsedInstruction::BI { absolute, cond, operand, line, source_file } => {
-                let resolved_operand = match operand {
-                    BranchOperand::Immediate(addr) => BranchOperand::Immediate(addr),
-                    BranchOperand::Label(label) => {
-                        let addr = self.label_map.get(&label).ok_or_else(|| {
-                            LinkerError::new(
-                                LinkerErrorKind::UnresolvedLabel,
-                                format!("Unresolved label: '{}'", label),
-                                line,
-                                source_file.clone(),
-                            )
-                        })?;
-                        BranchOperand::Immediate(addr)
-                    }
-                };
+                let resolved_operand = self.resolve_operand(&operand, line, &source_file)?;
                 Ok(ParsedInstruction::BI {
                     absolute,
                     cond,
@@ -111,7 +108,40 @@ impl Linker {
                     source_file,
                 })
             }
+            ParsedInstruction::P { op, register, offset, line, source_file } => {
+                let resolved = self.resolve_operand(&offset, line, &source_file)?;
+                Ok(ParsedInstruction::P {
+                    op,
+                    register,
+                    offset: resolved,
+                    line,
+                    source_file,
+                })
+            }
             other => Ok(other),
+        }
+    }
+
+    /// Resolve an `Operand` – if it's a label, look it up in the label map.
+    fn resolve_operand(
+        &self,
+        operand: &Operand,
+        line: usize,
+        source_file: &Option<String>,
+    ) -> Result<Operand, LinkerError> {
+        match operand {
+            Operand::Immediate(_) => Ok(operand.clone()),
+            Operand::Label(label) => {
+                let addr = self.label_map.get(label).ok_or_else(|| {
+                    LinkerError::new(
+                        LinkerErrorKind::UnresolvedLabel,
+                        format!("Unresolved label: '{}'", label),
+                        line,
+                        source_file.clone(),
+                    )
+                })?;
+                Ok(Operand::Immediate(addr))
+            }
         }
     }
 }

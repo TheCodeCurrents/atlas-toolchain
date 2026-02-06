@@ -141,19 +141,19 @@ impl StackOp {
     }
 }
 
-/// Port operation codes
+/// Peek/Poke operation codes
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PortOp {
+pub enum PeekPokeOp {
     POKE = 0,
     PEEK,
 }
 
-impl PortOp {
-    pub fn from_instruction(instruction: Mnemonic) -> Option<PortOp> {
+impl PeekPokeOp {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<PeekPokeOp> {
         match instruction {
-            Mnemonic::POKE => Some(PortOp::POKE),
-            Mnemonic::PEEK => Some(PortOp::PEEK),
+            Mnemonic::POKE => Some(PeekPokeOp::POKE),
+            Mnemonic::PEEK => Some(PeekPokeOp::PEEK),
             _ => None,
         }
     }

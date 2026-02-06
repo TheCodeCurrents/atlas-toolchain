@@ -42,6 +42,7 @@ pub struct SpannedToken { pub token: Token, pub span: Span }
 pub enum Directive {
     Import,     // import label from another file
     Export,     // export label for use in another file
+    Imm,        // assign an immediate value to the preceding label: label: .imm 42
 }
 
 impl Directive {
@@ -49,6 +50,7 @@ impl Directive {
         match s {
             "import" => Some(Directive::Import),
             "export" => Some(Directive::Export),
+            "imm"    => Some(Directive::Imm),
             _ => None,
         }
     }

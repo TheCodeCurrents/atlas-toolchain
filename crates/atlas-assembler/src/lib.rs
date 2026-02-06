@@ -33,7 +33,7 @@ pub fn assemble(src: &str, output: &str) -> Result<(), AssemblerError> {
     for (name, symbol) in parser.symbols().iter() {
         match symbol {
             crate::parser::symbols::Symbol::Label(address) => {
-                let address = u8::try_from(*address).map_err(|_| {
+                let address = u16::try_from(*address).map_err(|_| {
                     AssemblerError::EncodingError(EncodingError {
                         line: 0,
                         message: format!(
@@ -58,6 +58,18 @@ pub fn assemble(src: &str, output: &str) -> Result<(), AssemblerError> {
                     name: name.clone(),
                     address: None,
                     kind: SymbolKind::Import,
+                });
+            }
+            crate::parser::symbols::Symbol::Constant(value) => {
+                let kind = if parser.symbols().is_exported(name) {
+                    SymbolKind::Export
+                } else {
+                    SymbolKind::Constant
+                };
+                symbols.push(Symbol {
+                    name: name.clone(),
+                    address: Some(*value),
+                    kind,
                 });
             }
         }

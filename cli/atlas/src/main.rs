@@ -4,7 +4,7 @@ use args::Arguments;
 use clap::Parser;
 
 use crate::args::Command;
-use atlas_isa::{BranchCond, BranchOperand, MOffset, ObjectFile, ParsedInstruction, SymbolKind, XOperand};
+use atlas_isa::{BranchCond, MOffset, ObjectFile, Operand, ParsedInstruction, SymbolKind, XOperand};
 
 fn print_hex_dump(bytes: &[u8]) {
     let mut offset = 0usize;
@@ -49,11 +49,15 @@ fn format_instruction(instr: &ParsedInstruction) -> String {
             format!("{} r{}, r{}", format!("{:?}", op).to_lowercase(), dest, source)
         }
         ParsedInstruction::I { op, dest, immediate, .. } => {
+            let imm_str = match immediate {
+                Operand::Immediate(val) => format!("0x{:04x}", val),
+                Operand::Label(name) => name.clone(),
+            };
             format!(
-                "{} r{}, 0x{:02x}",
+                "{} r{}, {}",
                 format!("{:?}", op).to_lowercase(),
                 dest,
-                immediate
+                imm_str
             )
         }
         ParsedInstruction::M { op, dest, base, offset, .. } => {
@@ -72,8 +76,8 @@ fn format_instruction(instr: &ParsedInstruction) -> String {
         ParsedInstruction::BI { absolute, cond, operand, .. } => {
             let op_str = branch_mnemonic(*cond);
             let target = match operand {
-                BranchOperand::Immediate(addr) => format!("0x{:02x}", addr),
-                BranchOperand::Label(name) => name.clone(),
+                Operand::Immediate(addr) => format!("0x{:04x}", addr),
+                Operand::Label(name) => name.clone(),
             };
             let mode = if *absolute { "abs" } else { "rel" };
             format!("{} {} ({})", op_str, target, mode)
@@ -87,11 +91,15 @@ fn format_instruction(instr: &ParsedInstruction) -> String {
             format!("{} r{}", format!("{:?}", op).to_lowercase(), register)
         }
         ParsedInstruction::P { op, register, offset, .. } => {
+            let off_str = match offset {
+                Operand::Immediate(val) => format!("0x{:04x}", val),
+                Operand::Label(name) => name.clone(),
+            };
             format!(
-                "{} r{}, 0x{:02x}",
+                "{} r{}, {}",
                 format!("{:?}", op).to_lowercase(),
                 register,
-                offset
+                off_str
             )
         }
         ParsedInstruction::X { op, operand, .. } => {
@@ -142,9 +150,10 @@ fn print_object_file(obj: &ObjectFile) {
                 SymbolKind::Local => "local",
                 SymbolKind::Export => "export",
                 SymbolKind::Import => "import",
+                SymbolKind::Constant => "const",
             };
             let addr = match symbol.address {
-                Some(value) => format!("0x{:02x}", value),
+                Some(value) => format!("0x{:04x}", value),
                 None => "None".to_string(),
             };
             eprintln!("  {:<6} {:<20} {}", kind, symbol.name, addr);

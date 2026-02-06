@@ -1,5 +1,5 @@
-use crate::opcode::{AluOp, BranchCond, ImmOp, MemOp, PortOp, StackOp, XTypeOp};
-use crate::operands::{BranchOperand, MOffset, RegisterIdentifier, RegisterPairIdentifier, XOperand};
+use crate::opcode::{AluOp, BranchCond, ImmOp, MemOp, PeekPokeOp, StackOp, XTypeOp};
+use crate::operands::{BranchOperand, MOffset, Operand, RegisterIdentifier, RegisterPairIdentifier, XOperand};
 use serde::{Deserialize, Serialize};
 
 /// Instruction by mnemonic
@@ -92,7 +92,7 @@ pub enum ParsedInstruction {
     I {
         op: ImmOp,
         dest: RegisterIdentifier,
-        immediate: u8,
+        immediate: Operand,
         line: usize,
         #[serde(default)]
         source_file: Option<String>,
@@ -130,9 +130,9 @@ pub enum ParsedInstruction {
         source_file: Option<String>,
     },
     P {
-        op: PortOp,
+        op: PeekPokeOp,
         register: RegisterIdentifier,
-        offset: u8,
+        offset: Operand,
         line: usize,
         #[serde(default)]
         source_file: Option<String>,

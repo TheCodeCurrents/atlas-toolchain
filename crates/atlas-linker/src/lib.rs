@@ -49,18 +49,7 @@ pub fn link(object_files: &[&str], output: &str) -> Result<(), LinkerError> {
                 )
             })?;
 
-            let absolute_address = current_address + symbol_address as u16;
-            let absolute_address = u8::try_from(absolute_address).map_err(|_| {
-                LinkerError::new(
-                    LinkerErrorKind::ObjectFile,
-                    format!(
-                        "Symbol address out of range for '{}': {}",
-                        symbol.name, absolute_address
-                    ),
-                    0,
-                    Some(obj_path.to_string()),
-                )
-            })?;
+            let absolute_address = current_address + symbol_address;
             linker.register_label(symbol.name.clone(), absolute_address);
         }
 

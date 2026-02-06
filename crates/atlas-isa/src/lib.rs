@@ -14,7 +14,7 @@ pub mod object_file;
 
 // Re-export commonly used types
 pub use instruction::{Mnemonic, ParsedInstruction};
-pub use opcode::{AluOp, BranchCond, ImmOp, MemOp, PortOp, StackOp, XTypeOp};
-pub use operands::{BranchOperand, MOffset, RegisterIdentifier, RegisterPairIdentifier, XOperand};
+pub use opcode::{AluOp, BranchCond, ImmOp, MemOp, PeekPokeOp, StackOp, XTypeOp};
+pub use operands::{BranchOperand, MOffset, Operand, RegisterIdentifier, RegisterPairIdentifier, XOperand};
 pub use encoding_error::EncodingError;
 pub use object_file::{ObjectFile, Symbol, SymbolKind};

@@ -7,6 +7,7 @@ pub enum ParseError {
     UnexpectedToken { line: usize, expected: &'static str, found: String },
     ImmediateOutOfRange { line: usize, value: i32, min: i32, max: i32 },
     LexError { line: usize, details: String },
+    WriteToR0 { line: usize, instruction: String },
 }
 
 impl Display for ParseError {
@@ -26,6 +27,9 @@ impl Display for ParseError {
             }
             ParseError::LexError { line, details } => {
                 write!(f, "Lex error at line {}: {}", line, details)
+            }
+            ParseError::WriteToR0 { line, instruction } => {
+                write!(f, "Cannot write to r0 at line {} ({}): r0 is hardwired to zero", line, instruction)
             }
         }
     }

@@ -46,7 +46,7 @@ impl ObjectFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Symbol {
     pub name: String,
-    pub address: Option<u8>,
+    pub address: Option<u16>,
     pub kind: SymbolKind,
 }
 
@@ -55,5 +55,7 @@ pub enum SymbolKind {
     Local,
     Export,
     Import,
+    /// A named constant (value, not an address)
+    Constant,
 }
 

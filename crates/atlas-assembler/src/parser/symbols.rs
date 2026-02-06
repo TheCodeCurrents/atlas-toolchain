@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-// TODO: Add support for constants/macros
 #[derive(Debug, Clone)]
 pub enum Symbol {
     Label(u32),
     External,
-    // Constant(String of tokens),
+    Constant(u16),
 }
 
 #[derive(Debug, Clone, Default)]

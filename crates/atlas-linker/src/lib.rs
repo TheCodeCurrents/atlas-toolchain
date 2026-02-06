@@ -1,3 +1,6 @@
+// TODO: add support for linking libs
+// TODO: add support for multiple sections (code, data, bss) and section-specific linking
+
 pub mod error;
 pub mod linker;
 

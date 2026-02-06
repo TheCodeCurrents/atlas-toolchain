@@ -42,19 +42,33 @@ pub fn assemble(src: &str, output: &str) -> Result<(), AssemblerError> {
                         ),
                     })
                 })?;
+                let kind = if parser.symbols().is_exported(name) {
+                    SymbolKind::Export
+                } else {
+                    SymbolKind::Local
+                };
                 symbols.push(Symbol {
                     name: name.clone(),
-                    address,
-                    kind: SymbolKind::Local,
+                    address: Some(address),
+                    kind,
                 });
             }
             crate::parser::symbols::Symbol::External => {
                 symbols.push(Symbol {
                     name: name.clone(),
-                    address: 0,
+                    address: None,
                     kind: SymbolKind::Import,
                 });
             }
+        }
+    }
+
+    for export in parser.symbols().exports() {
+        if parser.symbols().resolve(export).is_none() {
+            return Err(AssemblerError::EncodingError(EncodingError {
+                line: 0,
+                message: format!("Exported symbol '{}' is not defined", export),
+            }));
         }
     }
     

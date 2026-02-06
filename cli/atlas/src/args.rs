@@ -6,6 +6,10 @@ use clap:: {
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
 pub struct Arguments {
+    /// enable verbose output
+    #[arg(short = 'v', long = "verbose", global = true)]
+    pub verbose: bool,
+
     #[clap(subcommand)]
     pub command: Command,
 }

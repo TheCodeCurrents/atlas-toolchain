@@ -40,7 +40,16 @@ pub fn link(object_files: &[&str], output: &str) -> Result<(), LinkerError> {
                 continue;
             }
 
-            let absolute_address = current_address + symbol.address as u16;
+            let symbol_address = symbol.address.ok_or_else(|| {
+                LinkerError::new(
+                    LinkerErrorKind::ObjectFile,
+                    format!("Symbol '{}' is missing an address", symbol.name),
+                    0,
+                    Some(obj_path.to_string()),
+                )
+            })?;
+
+            let absolute_address = current_address + symbol_address as u16;
             let absolute_address = u8::try_from(absolute_address).map_err(|_| {
                 LinkerError::new(
                     LinkerErrorKind::ObjectFile,

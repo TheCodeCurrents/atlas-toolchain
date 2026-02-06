@@ -64,7 +64,7 @@ impl ObjectFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Symbol {
     pub name: String,
-    pub address: u8,
+    pub address: Option<u8>,
     pub kind: SymbolKind,
 }
 

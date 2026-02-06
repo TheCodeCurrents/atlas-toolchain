@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // TODO: Add support for constants/macros
 #[derive(Debug, Clone)]
@@ -10,16 +10,32 @@ pub enum Symbol {
 
 #[derive(Debug, Clone, Default)]
 pub struct SymbolTable {
-    symbols: HashMap<String, Symbol>
+    symbols: HashMap<String, Symbol>,
+    exports: HashSet<String>,
 }
 
 impl SymbolTable {
     pub fn new() -> Self {
-        Self { symbols: HashMap::new() }
+        Self {
+            symbols: HashMap::new(),
+            exports: HashSet::new(),
+        }
     }
 
     pub fn insert(&mut self, name: String, symbol: Symbol) {
         self.symbols.insert(name, symbol);
+    }
+
+    pub fn export(&mut self, name: String) {
+        self.exports.insert(name);
+    }
+
+    pub fn is_exported(&self, name: &str) -> bool {
+        self.exports.contains(name)
+    }
+
+    pub fn exports(&self) -> impl Iterator<Item = &String> {
+        self.exports.iter()
     }
 
     pub fn resolve(&self, name: &str) -> Option<&Symbol> {

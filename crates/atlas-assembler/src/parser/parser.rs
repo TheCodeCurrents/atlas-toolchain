@@ -111,7 +111,16 @@ impl<'a> Parser<'a> {
                 self.skip_to_line_end()
             }
             Directive::Export => {
-                // currently ignore exports, just skip to end of line
+                let next: SpannedToken = self.next_token()?;
+                if let Token::LabelRef(name) = next.token {
+                    self.symbols.export(name);
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        line: next.span.line,
+                        expected: "label after .export",
+                        found: Self::token_description(&next.token),
+                    });
+                }
                 self.skip_to_line_end()
             }
         }

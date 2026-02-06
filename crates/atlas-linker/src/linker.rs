@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use atlas_isa::{BranchOperand, ResolvedInstruction};
+use atlas_isa::{BranchOperand, ParsedInstruction};
 
 use crate::error::{LinkerError, LinkerErrorKind};
 
@@ -78,7 +78,7 @@ impl Linker {
 
     /// Resolve all label references in instructions to actual addresses
     /// This converts BranchOperand::Label to BranchOperand::Immediate with the resolved address
-    pub fn resolve_labels(&self, instructions: Vec<ResolvedInstruction>) -> Result<Vec<ResolvedInstruction>, LinkerError> {
+    pub fn resolve_labels(&self, instructions: Vec<ParsedInstruction>) -> Result<Vec<ParsedInstruction>, LinkerError> {
         instructions
             .into_iter()
             .map(|instr| self.resolve_instruction(instr))
@@ -86,9 +86,9 @@ impl Linker {
     }
 
     /// Resolve labels in a single instruction
-    fn resolve_instruction(&self, instr: ResolvedInstruction) -> Result<ResolvedInstruction, LinkerError> {
+    fn resolve_instruction(&self, instr: ParsedInstruction) -> Result<ParsedInstruction, LinkerError> {
         match instr {
-            ResolvedInstruction::BI { absolute, cond, operand, line, source_file } => {
+            ParsedInstruction::BI { absolute, cond, operand, line, source_file } => {
                 let resolved_operand = match operand {
                     BranchOperand::Immediate(addr) => BranchOperand::Immediate(addr),
                     BranchOperand::Label(label) => {
@@ -103,7 +103,7 @@ impl Linker {
                         BranchOperand::Immediate(addr)
                     }
                 };
-                Ok(ResolvedInstruction::BI {
+                Ok(ParsedInstruction::BI {
                     absolute,
                     cond,
                     operand: resolved_operand,

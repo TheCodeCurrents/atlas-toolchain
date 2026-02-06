@@ -1,4 +1,4 @@
-use atlas_isa::{AluOp, BranchCond, BranchOperand, ImmOp, Instruction, MemOp, PortOp, ResolvedInstruction, StackOp, XTypeOp, instruction::InstructionFormat, operands::{MOffset, RegisterPairIdentifier, XOperand}};
+use atlas_isa::{AluOp, BranchCond, BranchOperand, ImmOp, Mnemonic, MemOp, PortOp, ParsedInstruction, StackOp, XTypeOp, instruction::InstructionFormat, operands::{MOffset, RegisterPairIdentifier, XOperand}};
 use crate::lexer::{Directive, LexError, Lexer, SpannedToken, Token};
 
 use crate::{parser::error::ParseError, parser::symbols::SymbolTable};
@@ -12,7 +12,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Iterator for Parser<'a> {
-    type Item = Result<ResolvedInstruction, ParseError>;
+    type Item = Result<ParsedInstruction, ParseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // get next token from lexer
@@ -192,7 +192,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn process_instruction(&mut self, instruction: Instruction, line: usize) -> Result<ResolvedInstruction, ParseError> {
+    fn process_instruction(&mut self, instruction: Mnemonic, line: usize) -> Result<ParsedInstruction, ParseError> {
         match instruction.get_type() {
             InstructionFormat::A => {
                 // A-type: rd, rs
@@ -207,7 +207,7 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid ALU op", instruction.mnemonic()),
                     })?;
                 
-                Ok(ResolvedInstruction::A {
+                Ok(ParsedInstruction::A {
                     op,
                     dest: rd,
                     source: rs,
@@ -228,7 +228,7 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid immediate op", instruction.mnemonic()),
                     })?;
 
-                Ok(ResolvedInstruction::I {
+                Ok(ParsedInstruction::I {
                     op,
                     dest: rd,
                     immediate: imm as u8,
@@ -335,7 +335,7 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid memory op", instruction.mnemonic()),
                     })?;
 
-                Ok(ResolvedInstruction::M {
+                Ok(ParsedInstruction::M {
                     op,
                     dest: rd,
                     base,
@@ -368,7 +368,7 @@ impl<'a> Parser<'a> {
                                 });
                             }
                             self.expect_newline()?;
-                            Ok(ResolvedInstruction::BI {
+                            Ok(ParsedInstruction::BI {
                                 absolute: false,
                                 cond,
                                 operand: BranchOperand::Immediate(imm.value as u8),
@@ -378,7 +378,7 @@ impl<'a> Parser<'a> {
                         } else {
                             // Absolute immediate branch
                             self.expect_newline()?;
-                            Ok(ResolvedInstruction::BI {
+                            Ok(ParsedInstruction::BI {
                                 absolute: true,
                                 cond,
                                 operand: BranchOperand::Immediate(imm.value as u8),
@@ -392,7 +392,7 @@ impl<'a> Parser<'a> {
                         self.expect_newline()?;
                         
                         // Branches to labels are always absolute (will be resolved by linker)
-                        Ok(ResolvedInstruction::BI {
+                        Ok(ParsedInstruction::BI {
                             absolute: true,
                             cond,
                             operand: BranchOperand::Label(label_name),
@@ -406,7 +406,7 @@ impl<'a> Parser<'a> {
                         let reg2 = self.expect_register()?;
                         self.expect_newline()?;
                         
-                        Ok(ResolvedInstruction::BR {
+                        Ok(ParsedInstruction::BR {
                             absolute: true,
                             cond,
                             source: RegisterPairIdentifier { high: reg1, low: reg2 },
@@ -434,7 +434,7 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid stack op", instruction.mnemonic()),
                     })?;
 
-                Ok(ResolvedInstruction::S {
+                Ok(ParsedInstruction::S {
                     op,
                     register: reg,
                     line,
@@ -454,7 +454,7 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid port op", instruction.mnemonic()),
                     })?;
 
-                Ok(ResolvedInstruction::P {
+                Ok(ParsedInstruction::P {
                     op,
                     register: reg,
                     offset: offset as u8,
@@ -511,7 +511,7 @@ impl<'a> Parser<'a> {
                         details: format!("Instruction '{}' is not a valid extended op", instruction.mnemonic()),
                     })?;
 
-                Ok(ResolvedInstruction::X {
+                Ok(ParsedInstruction::X {
                     op,
                     operand,
                     line,
@@ -523,7 +523,7 @@ impl<'a> Parser<'a> {
                 self.expect_newline()?;
                 
                 // NOP is typically treated as MOV r0, r0
-                Ok(ResolvedInstruction::A {
+                Ok(ParsedInstruction::A {
                     op: AluOp::MOV,
                     dest: 0,
                     source: 0,

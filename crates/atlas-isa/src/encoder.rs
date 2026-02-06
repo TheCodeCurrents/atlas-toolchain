@@ -1,19 +1,19 @@
-use crate::ResolvedInstruction;
+use crate::ParsedInstruction;
 use crate::encoding_error::EncodingError;
 use crate::operands::{BranchOperand, MOffset, RegisterPairIdentifier, XOperand};
 use crate::opcode::{AluOp, ImmOp, MemOp, BranchCond, StackOp, PortOp, XTypeOp};
 
 
-impl ResolvedInstruction {
+impl ParsedInstruction {
     pub fn encode(&self) -> Result<u16, EncodingError> {
         match &self {
-            ResolvedInstruction::A { op, dest, source, line: _, source_file: _ } => {
+            ParsedInstruction::A { op, dest, source, line: _, source_file: _ } => {
                 let encoded = ((*dest as u16) << 12) 
                     | (*source as u16)
                     | ((*op as u16));
                 Ok(encoded)
             }
-            ResolvedInstruction::I { op, dest, immediate, line: _, source_file: _ } => {
+            ParsedInstruction::I { op, dest, immediate, line: _, source_file: _ } => {
                 let type_field = 1 + *op as u16;
 
                 let encoded: u16 = ((type_field) << 12)
@@ -22,7 +22,7 @@ impl ResolvedInstruction {
 
                 Ok(encoded)
             }
-            ResolvedInstruction::M { op, dest, base, offset, line: _, source_file: _ } => {
+            ParsedInstruction::M { op, dest, base, offset, line: _, source_file: _ } => {
                 let type_field = 6 + *op as u16;
 
                 let offset_val = match offset {
@@ -37,7 +37,7 @@ impl ResolvedInstruction {
 
                 Ok(encoded)
             }
-            ResolvedInstruction::BI { absolute, cond, operand, line, source_file: _ } => {
+            ParsedInstruction::BI { absolute, cond, operand, line, source_file: _ } => {
                 let address = match operand {
                     BranchOperand::Immediate(addr) => *addr,
                     BranchOperand::Label(name) => {
@@ -55,7 +55,7 @@ impl ResolvedInstruction {
 
                 Ok(encoded)
             }
-            ResolvedInstruction::BR { absolute, cond, source, line: _, source_file: _ } => {
+            ParsedInstruction::BR { absolute, cond, source, line: _, source_file: _ } => {
                 let encoded = (9 << 12)
                     | ((*absolute as u16) << 11)
                     | ((*cond as u16) << 8)
@@ -64,14 +64,14 @@ impl ResolvedInstruction {
 
                 Ok(encoded)
             }
-            ResolvedInstruction::S { op, register, line: _, source_file: _ } => {
+            ParsedInstruction::S { op, register, line: _, source_file: _ } => {
                 let encoded = (10 << 12)
                     | ((*op as u16) << 8)
                     | (*register as u16);
 
                 Ok(encoded)
             }
-            ResolvedInstruction::P { op, register, offset, line: _, source_file: _ } => {
+            ParsedInstruction::P { op, register, offset, line: _, source_file: _ } => {
                 let encoded = (11 << 12)
                     | ((*op as u16) << 11)
                     | ((*register as u16) << 8)
@@ -79,7 +79,7 @@ impl ResolvedInstruction {
 
                 Ok(encoded)
             }
-            ResolvedInstruction::X { op, operand, line: _, source_file: _ } => {
+            ParsedInstruction::X { op, operand, line: _, source_file: _ } => {
                 let encoded = (12 << 12)
                     | ((*op as u16) << 8)
                     | match operand {
@@ -102,7 +102,7 @@ impl ResolvedInstruction {
         }
     }
 
-    pub fn decode(encoded: u16) -> Result<ResolvedInstruction, String> {
+    pub fn decode(encoded: u16) -> Result<ParsedInstruction, String> {
         let opcode = (encoded >> 12) & 0xF;
 
         match opcode {
@@ -132,7 +132,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid ALU operation: {}", op_val)),
                 };
 
-                Ok(ResolvedInstruction::A {
+                Ok(ParsedInstruction::A {
                     op,
                     dest,
                     source,
@@ -155,7 +155,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid immediate operation: {}", op_val)),
                 };
 
-                Ok(ResolvedInstruction::I {
+                Ok(ParsedInstruction::I {
                     op,
                     dest,
                     immediate,
@@ -176,7 +176,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid memory operation: {}", op_val)),
                 };
 
-                Ok(ResolvedInstruction::M {
+                Ok(ParsedInstruction::M {
                     op,
                     dest,
                     base,
@@ -202,7 +202,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid branch condition: {}", cond_val)),
                 };
 
-                Ok(ResolvedInstruction::BI {
+                Ok(ParsedInstruction::BI {
                     absolute,
                     cond,
                     operand: BranchOperand::Immediate(address),
@@ -228,7 +228,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid branch condition: {}", cond_val)),
                 };
 
-                Ok(ResolvedInstruction::BR {
+                Ok(ParsedInstruction::BR {
                     absolute,
                     cond,
                     source: RegisterPairIdentifier { high, low },
@@ -249,7 +249,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid stack operation: {}", op_val)),
                 };
 
-                Ok(ResolvedInstruction::S {
+                Ok(ParsedInstruction::S {
                     op,
                     register,
                     line: 0,
@@ -268,7 +268,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid port operation: {}", op_val)),
                 };
 
-                Ok(ResolvedInstruction::P {
+                Ok(ParsedInstruction::P {
                     op,
                     register,
                     offset,
@@ -294,7 +294,7 @@ impl ResolvedInstruction {
                     _ => return Err(format!("Invalid extended operation: {}", op_val)),
                 };
 
-                Ok(ResolvedInstruction::X {
+                Ok(ParsedInstruction::X {
                     op,
                     operand: XOperand::Registers(source, destination),
                     line: 0,

@@ -34,4 +34,13 @@ pub enum Command {
         #[arg(short = 'o', long = "output", value_name = "OUTPUT")]
         output: String,
     },
+    Inspect {
+        /// input file to inspect
+        #[arg(value_name = "INPUT")]
+        input: String,
+
+        /// format of the output
+        #[arg(short = 'f', long = "format")]
+        format: Option<String>,
+    },
 }

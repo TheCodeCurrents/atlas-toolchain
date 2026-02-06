@@ -1,4 +1,4 @@
-use atlas_isa::{Instruction};
+use atlas_isa::{Mnemonic};
 
 use crate::lexer::{LexError, Token, token::{Directive, Span, SpannedToken}};
 
@@ -166,7 +166,7 @@ impl<'a> Iterator for Lexer<'a> {
         }
 
         // check for mnemonics and label references
-        if let Some(instruction) = Instruction::from_str(word) {
+        if let Some(instruction) = Mnemonic::from_str(word) {
             self.last_was_newline = false;
             return Some(Ok(SpannedToken {
                 token: Token::Mnemonic(instruction),

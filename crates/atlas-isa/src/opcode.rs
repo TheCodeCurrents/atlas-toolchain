@@ -1,4 +1,4 @@
-use crate::Instruction;
+use crate::Mnemonic;
 use serde::{Deserialize, Serialize};
 
 /// ALU operation codes
@@ -25,24 +25,24 @@ pub enum AluOp {
 
 impl AluOp {
     /// Check if the operation is a comparison operation
-    pub fn from_instruction(instruction: Instruction) -> Option<AluOp> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<AluOp> {
         match instruction {
-            Instruction::ADD => Some(AluOp::ADD),
-            Instruction::ADDC => Some(AluOp::ADDC),
-            Instruction::SUB => Some(AluOp::SUB),
-            Instruction::SUBC => Some(AluOp::SUBC),
-            Instruction::AND => Some(AluOp::AND),
-            Instruction::OR => Some(AluOp::OR),
-            Instruction::XOR => Some(AluOp::XOR),
-            Instruction::NOT => Some(AluOp::NOT),
-            Instruction::SHL => Some(AluOp::SHL),
-            Instruction::SHR => Some(AluOp::SHR),
-            Instruction::ROL => Some(AluOp::ROL),
-            Instruction::ROR => Some(AluOp::ROR),
-            Instruction::CMP => Some(AluOp::CMP),
-            Instruction::TST => Some(AluOp::TST),
-            Instruction::MOV => Some(AluOp::MOV),
-            Instruction::NEG => Some(AluOp::NEG),
+            Mnemonic::ADD => Some(AluOp::ADD),
+            Mnemonic::ADDC => Some(AluOp::ADDC),
+            Mnemonic::SUB => Some(AluOp::SUB),
+            Mnemonic::SUBC => Some(AluOp::SUBC),
+            Mnemonic::AND => Some(AluOp::AND),
+            Mnemonic::OR => Some(AluOp::OR),
+            Mnemonic::XOR => Some(AluOp::XOR),
+            Mnemonic::NOT => Some(AluOp::NOT),
+            Mnemonic::SHL => Some(AluOp::SHL),
+            Mnemonic::SHR => Some(AluOp::SHR),
+            Mnemonic::ROL => Some(AluOp::ROL),
+            Mnemonic::ROR => Some(AluOp::ROR),
+            Mnemonic::CMP => Some(AluOp::CMP),
+            Mnemonic::TST => Some(AluOp::TST),
+            Mnemonic::MOV => Some(AluOp::MOV),
+            Mnemonic::NEG => Some(AluOp::NEG),
             _ => None,
         }
     }
@@ -61,13 +61,13 @@ pub enum ImmOp {
 
 impl ImmOp {
     /// Check if the operation is a valid immediate operation
-    pub fn from_instruction(instruction: Instruction) -> Option<ImmOp> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<ImmOp> {
         match instruction {
-            Instruction::LDI => Some(ImmOp::LDI),
-            Instruction::ADDI => Some(ImmOp::ADDI),
-            Instruction::SUBI => Some(ImmOp::SUBI),
-            Instruction::ANDI => Some(ImmOp::ANDI),
-            Instruction::ORI => Some(ImmOp::ORI),
+            Mnemonic::LDI => Some(ImmOp::LDI),
+            Mnemonic::ADDI => Some(ImmOp::ADDI),
+            Mnemonic::SUBI => Some(ImmOp::SUBI),
+            Mnemonic::ANDI => Some(ImmOp::ANDI),
+            Mnemonic::ORI => Some(ImmOp::ORI),
             _ => None,
         }
     }
@@ -82,10 +82,10 @@ pub enum MemOp {
 }
 
 impl MemOp {
-    pub fn from_instruction(instruction: Instruction) -> Option<MemOp> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<MemOp> {
         match instruction {
-            Instruction::LD => Some(MemOp::LD),
-            Instruction::ST => Some(MemOp::ST),
+            Mnemonic::LD => Some(MemOp::LD),
+            Mnemonic::ST => Some(MemOp::ST),
             _ => None,
         }
     }
@@ -105,15 +105,15 @@ pub enum BranchCond {
 }
 
 impl BranchCond {
-    pub fn from_instruction(instruction: Instruction) -> Option<BranchCond> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<BranchCond> {
         match instruction {
-            Instruction::BR => Some(BranchCond::Unconditional),
-            Instruction::BEQ => Some(BranchCond::EQ),
-            Instruction::BNE => Some(BranchCond::NE),
-            Instruction::BCS => Some(BranchCond::CS),
-            Instruction::BCC => Some(BranchCond::CC),
-            Instruction::BMI => Some(BranchCond::MI),
-            Instruction::BPL => Some(BranchCond::PL),
+            Mnemonic::BR => Some(BranchCond::Unconditional),
+            Mnemonic::BEQ => Some(BranchCond::EQ),
+            Mnemonic::BNE => Some(BranchCond::NE),
+            Mnemonic::BCS => Some(BranchCond::CS),
+            Mnemonic::BCC => Some(BranchCond::CC),
+            Mnemonic::BMI => Some(BranchCond::MI),
+            Mnemonic::BPL => Some(BranchCond::PL),
             _ => None,
         }
     }
@@ -130,12 +130,12 @@ pub enum StackOp {
 }
 
 impl StackOp {
-    pub fn from_instruction(instruction: Instruction) -> Option<StackOp> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<StackOp> {
         match instruction {
-            Instruction::PUSH => Some(StackOp::PUSH),
-            Instruction::POP => Some(StackOp::POP),
-            Instruction::SUBSP => Some(StackOp::SUBSP),
-            Instruction::ADDSP => Some(StackOp::ADDSP),
+            Mnemonic::PUSH => Some(StackOp::PUSH),
+            Mnemonic::POP => Some(StackOp::POP),
+            Mnemonic::SUBSP => Some(StackOp::SUBSP),
+            Mnemonic::ADDSP => Some(StackOp::ADDSP),
             _ => None,
         }
     }
@@ -150,10 +150,10 @@ pub enum PortOp {
 }
 
 impl PortOp {
-    pub fn from_instruction(instruction: Instruction) -> Option<PortOp> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<PortOp> {
         match instruction {
-            Instruction::POKE => Some(PortOp::POKE),
-            Instruction::PEEK => Some(PortOp::PEEK),
+            Mnemonic::POKE => Some(PortOp::POKE),
+            Mnemonic::PEEK => Some(PortOp::PEEK),
             _ => None,
         }
     }
@@ -173,15 +173,15 @@ pub enum XTypeOp {
 }
 
 impl XTypeOp {
-    pub fn from_instruction(instruction: Instruction) -> Option<XTypeOp> {
+    pub fn from_instruction(instruction: Mnemonic) -> Option<XTypeOp> {
         match instruction {
-            Instruction::SYSC => Some(XTypeOp::SYSC),
-            Instruction::ERET => Some(XTypeOp::ERET),
-            Instruction::HALT => Some(XTypeOp::HALT),
-            Instruction::ICINV => Some(XTypeOp::ICINV),
-            Instruction::DCINV => Some(XTypeOp::DCINV),
-            Instruction::DCCLEAN => Some(XTypeOp::DCCLEAN),
-            Instruction::FLUSH => Some(XTypeOp::FLUSH),
+            Mnemonic::SYSC => Some(XTypeOp::SYSC),
+            Mnemonic::ERET => Some(XTypeOp::ERET),
+            Mnemonic::HALT => Some(XTypeOp::HALT),
+            Mnemonic::ICINV => Some(XTypeOp::ICINV),
+            Mnemonic::DCINV => Some(XTypeOp::DCINV),
+            Mnemonic::DCCLEAN => Some(XTypeOp::DCCLEAN),
+            Mnemonic::FLUSH => Some(XTypeOp::FLUSH),
             _ => None,
         }
     }

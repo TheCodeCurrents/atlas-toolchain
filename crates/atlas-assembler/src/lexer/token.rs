@@ -1,4 +1,4 @@
-use atlas_isa::{Instruction, RegisterIdentifier};
+use atlas_isa::{Mnemonic, RegisterIdentifier};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Immediate {
@@ -8,7 +8,7 @@ pub struct Immediate {
 
 #[derive(Debug)]
 pub enum Token {
-    Mnemonic(Instruction),
+    Mnemonic(Mnemonic),
     Directive(Directive),
     Register(RegisterIdentifier),
     Immediate(Immediate),

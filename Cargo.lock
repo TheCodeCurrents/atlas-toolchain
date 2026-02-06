@@ -72,6 +72,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "atlas-inspect"
+version = "0.1.0"
+dependencies = [
+ "atlas-isa",
+]
+
+[[package]]
 name = "atlas-isa"
 version = "0.1.0"
 dependencies = [

@@ -13,7 +13,7 @@ pub mod encoding_error;
 pub mod object_file;
 
 // Re-export commonly used types
-pub use instruction::{Instruction, ResolvedInstruction};
+pub use instruction::{Mnemonic, ParsedInstruction};
 pub use opcode::{AluOp, BranchCond, ImmOp, MemOp, PortOp, StackOp, XTypeOp};
 pub use operands::{BranchOperand, MOffset, RegisterIdentifier, RegisterPairIdentifier, XOperand};
 pub use encoding_error::EncodingError;

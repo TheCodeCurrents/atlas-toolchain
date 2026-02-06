@@ -4,7 +4,7 @@ use args::Arguments;
 use clap::Parser;
 
 use crate::args::Command;
-use atlas_isa::{BranchCond, BranchOperand, MOffset, ObjectFile, ResolvedInstruction, SymbolKind, XOperand};
+use atlas_isa::{BranchCond, BranchOperand, MOffset, ObjectFile, ParsedInstruction, SymbolKind, XOperand};
 
 fn print_hex_dump(bytes: &[u8]) {
     let mut offset = 0usize;
@@ -43,12 +43,12 @@ fn branch_mnemonic(cond: BranchCond) -> &'static str {
     }
 }
 
-fn format_instruction(instr: &ResolvedInstruction) -> String {
+fn format_instruction(instr: &ParsedInstruction) -> String {
     match instr {
-        ResolvedInstruction::A { op, dest, source, .. } => {
+        ParsedInstruction::A { op, dest, source, .. } => {
             format!("{} r{}, r{}", format!("{:?}", op).to_lowercase(), dest, source)
         }
-        ResolvedInstruction::I { op, dest, immediate, .. } => {
+        ParsedInstruction::I { op, dest, immediate, .. } => {
             format!(
                 "{} r{}, 0x{:02x}",
                 format!("{:?}", op).to_lowercase(),
@@ -56,7 +56,7 @@ fn format_instruction(instr: &ResolvedInstruction) -> String {
                 immediate
             )
         }
-        ResolvedInstruction::M { op, dest, base, offset, .. } => {
+        ParsedInstruction::M { op, dest, base, offset, .. } => {
             let off_str = match offset {
                 MOffset::Offset8(val) => format!("0x{:02x}", val),
                 MOffset::SR(reg) => format!("r{}", reg),
@@ -69,7 +69,7 @@ fn format_instruction(instr: &ResolvedInstruction) -> String {
                 off_str
             )
         }
-        ResolvedInstruction::BI { absolute, cond, operand, .. } => {
+        ParsedInstruction::BI { absolute, cond, operand, .. } => {
             let op_str = branch_mnemonic(*cond);
             let target = match operand {
                 BranchOperand::Immediate(addr) => format!("0x{:02x}", addr),
@@ -78,15 +78,15 @@ fn format_instruction(instr: &ResolvedInstruction) -> String {
             let mode = if *absolute { "abs" } else { "rel" };
             format!("{} {} ({})", op_str, target, mode)
         }
-        ResolvedInstruction::BR { absolute, cond, source, .. } => {
+        ParsedInstruction::BR { absolute, cond, source, .. } => {
             let op_str = branch_mnemonic(*cond);
             let mode = if *absolute { "abs" } else { "rel" };
             format!("{} r{}, r{} ({})", op_str, source.high, source.low, mode)
         }
-        ResolvedInstruction::S { op, register, .. } => {
+        ParsedInstruction::S { op, register, .. } => {
             format!("{} r{}", format!("{:?}", op).to_lowercase(), register)
         }
-        ResolvedInstruction::P { op, register, offset, .. } => {
+        ParsedInstruction::P { op, register, offset, .. } => {
             format!(
                 "{} r{}, 0x{:02x}",
                 format!("{:?}", op).to_lowercase(),
@@ -94,7 +94,7 @@ fn format_instruction(instr: &ResolvedInstruction) -> String {
                 offset
             )
         }
-        ResolvedInstruction::X { op, operand, .. } => {
+        ParsedInstruction::X { op, operand, .. } => {
             let op_str = format!("{:?}", op).to_lowercase();
             match operand {
                 XOperand::None => op_str,
@@ -117,7 +117,7 @@ fn print_disassembly(bytes: &[u8]) {
         }
         let encoded = u16::from_be_bytes([chunk[0], chunk[1]]);
         let addr = (index * 2) as u16;
-        match ResolvedInstruction::decode(encoded) {
+        match ParsedInstruction::decode(encoded) {
             Ok(instr) => {
                 println!("{:04x}: {:04x}  {}", addr, encoded, format_instruction(&instr));
             }
@@ -171,6 +171,10 @@ fn main() {
     let output_path = match &args.command {
         Command::Asm { output, .. } => output.clone(),
         Command::Ld { output, .. } => output.clone(),
+        Command::Inspect { .. } => {
+            eprintln!("Inspect command does not produce an output file to read for verbose mode.");
+            std::process::exit(1);
+        }
     };
 
     let result = match args.command {
@@ -189,6 +193,10 @@ fn main() {
             atlas_linker::link(&input_refs, &output)
                 .map_err(|e| format!("{}", e))
         },
+        Command::Inspect { .. } => {
+            eprintln!("Inspect command is not implemented yet.");
+            std::process::exit(1);
+        }
     };
 
     if let Err(e) = result {

@@ -1,4 +1,3 @@
-.import mark
 .export loop
 
 loop:
@@ -6,4 +5,3 @@ loop:
     ldi r3, 0x34
     add r2, r3
     br loop
-    br mark

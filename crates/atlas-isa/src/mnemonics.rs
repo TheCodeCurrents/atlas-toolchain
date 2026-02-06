@@ -3,130 +3,130 @@
 //! This module provides conversions between instruction mnemonics and their
 //! corresponding opcodes and instruction families.
 
-use crate::instruction::{Instruction, InstructionFormat};
+use crate::instruction::{Mnemonic, InstructionFormat};
 
-impl Instruction {
+impl Mnemonic {
     /// Get the mnemonic string for the instruction
     pub fn mnemonic(&self) -> &'static str {
         match self {
             // A-type
-            Instruction::ADD => "add",
-            Instruction::ADDC => "addc",
-            Instruction::SUB => "sub",
-            Instruction::SUBC => "subc",
-            Instruction::AND => "and",
-            Instruction::OR => "or",
-            Instruction::XOR => "xor",
-            Instruction::NOT => "not",
-            Instruction::SHL => "shl",
-            Instruction::SHR => "shr",
-            Instruction::ROL => "rol",
-            Instruction::ROR => "ror",
-            Instruction::CMP => "cmp",
-            Instruction::TST => "tst",
-            Instruction::MOV => "mov",
-            Instruction::NEG => "neg",
+            Mnemonic::ADD => "add",
+            Mnemonic::ADDC => "addc",
+            Mnemonic::SUB => "sub",
+            Mnemonic::SUBC => "subc",
+            Mnemonic::AND => "and",
+            Mnemonic::OR => "or",
+            Mnemonic::XOR => "xor",
+            Mnemonic::NOT => "not",
+            Mnemonic::SHL => "shl",
+            Mnemonic::SHR => "shr",
+            Mnemonic::ROL => "rol",
+            Mnemonic::ROR => "ror",
+            Mnemonic::CMP => "cmp",
+            Mnemonic::TST => "tst",
+            Mnemonic::MOV => "mov",
+            Mnemonic::NEG => "neg",
 
             // I-type
-            Instruction::LDI => "ldi",
-            Instruction::ADDI => "addi",
-            Instruction::SUBI => "subi",
-            Instruction::ANDI => "andi",
-            Instruction::ORI => "ori",
+            Mnemonic::LDI => "ldi",
+            Mnemonic::ADDI => "addi",
+            Mnemonic::SUBI => "subi",
+            Mnemonic::ANDI => "andi",
+            Mnemonic::ORI => "ori",
 
             // M-type
-            Instruction::LD => "ld",
-            Instruction::ST => "st",
+            Mnemonic::LD => "ld",
+            Mnemonic::ST => "st",
 
             // B*-types
-            Instruction::BR => "br",
-            Instruction::BEQ => "beq",
-            Instruction::BNE => "bne",
-            Instruction::BCS => "bcs",
-            Instruction::BCC => "bcc",
-            Instruction::BMI => "bmi",
-            Instruction::BPL => "bpl",
+            Mnemonic::BR => "br",
+            Mnemonic::BEQ => "beq",
+            Mnemonic::BNE => "bne",
+            Mnemonic::BCS => "bcs",
+            Mnemonic::BCC => "bcc",
+            Mnemonic::BMI => "bmi",
+            Mnemonic::BPL => "bpl",
 
             // S-type
-            Instruction::PUSH => "push",
-            Instruction::POP => "pop",
-            Instruction::SUBSP => "subsp",
-            Instruction::ADDSP => "addsp",
+            Mnemonic::PUSH => "push",
+            Mnemonic::POP => "pop",
+            Mnemonic::SUBSP => "subsp",
+            Mnemonic::ADDSP => "addsp",
 
             // P-type
-            Instruction::POKE => "poke",
-            Instruction::PEEK => "peek",
+            Mnemonic::POKE => "poke",
+            Mnemonic::PEEK => "peek",
 
             // X-type
-            Instruction::SYSC => "sysc",
-            Instruction::ERET => "eret",
-            Instruction::HALT => "halt",
-            Instruction::ICINV => "icinv",
-            Instruction::DCINV => "dcinv",
-            Instruction::DCCLEAN => "dcclean",
-            Instruction::FLUSH => "flush",
+            Mnemonic::SYSC => "sysc",
+            Mnemonic::ERET => "eret",
+            Mnemonic::HALT => "halt",
+            Mnemonic::ICINV => "icinv",
+            Mnemonic::DCINV => "dcinv",
+            Mnemonic::DCCLEAN => "dcclean",
+            Mnemonic::FLUSH => "flush",
             // Virtual instructions
-            Instruction::NOP => "nop",
+            Mnemonic::NOP => "nop",
         }
     }
 
     pub fn get_type(&self) -> InstructionFormat {
         match self {
             // A-type
-            Instruction::ADD
-            | Instruction::ADDC
-            | Instruction::SUB
-            | Instruction::SUBC
-            | Instruction::AND
-            | Instruction::OR
-            | Instruction::XOR
-            | Instruction::NOT
-            | Instruction::SHL
-            | Instruction::SHR
-            | Instruction::ROL
-            | Instruction::ROR
-            | Instruction::CMP
-            | Instruction::TST
-            | Instruction::MOV
-            | Instruction::NEG => InstructionFormat::A,
+            Mnemonic::ADD
+            | Mnemonic::ADDC
+            | Mnemonic::SUB
+            | Mnemonic::SUBC
+            | Mnemonic::AND
+            | Mnemonic::OR
+            | Mnemonic::XOR
+            | Mnemonic::NOT
+            | Mnemonic::SHL
+            | Mnemonic::SHR
+            | Mnemonic::ROL
+            | Mnemonic::ROR
+            | Mnemonic::CMP
+            | Mnemonic::TST
+            | Mnemonic::MOV
+            | Mnemonic::NEG => InstructionFormat::A,
 
             // I-type
-            Instruction::LDI
-            | Instruction::ADDI
-            | Instruction::SUBI
-            | Instruction::ANDI
-            | Instruction::ORI => InstructionFormat::I,
+            Mnemonic::LDI
+            | Mnemonic::ADDI
+            | Mnemonic::SUBI
+            | Mnemonic::ANDI
+            | Mnemonic::ORI => InstructionFormat::I,
 
             // M-type
-            Instruction::LD | Instruction::ST => InstructionFormat::M,
+            Mnemonic::LD | Mnemonic::ST => InstructionFormat::M,
 
             // B*-types
-            Instruction::BR
-            | Instruction::BEQ
-            | Instruction::BNE
-            | Instruction::BCS
-            | Instruction::BCC
-            | Instruction::BMI
-            | Instruction::BPL => InstructionFormat::B,
+            Mnemonic::BR
+            | Mnemonic::BEQ
+            | Mnemonic::BNE
+            | Mnemonic::BCS
+            | Mnemonic::BCC
+            | Mnemonic::BMI
+            | Mnemonic::BPL => InstructionFormat::B,
             // S-type
-            Instruction::PUSH
-            | Instruction::POP
-            | Instruction::SUBSP
-            | Instruction::ADDSP => InstructionFormat::S,
+            Mnemonic::PUSH
+            | Mnemonic::POP
+            | Mnemonic::SUBSP
+            | Mnemonic::ADDSP => InstructionFormat::S,
 
             // P-type
-            Instruction::POKE | Instruction::PEEK => InstructionFormat::P,
+            Mnemonic::POKE | Mnemonic::PEEK => InstructionFormat::P,
 
             // X-type
-            Instruction::SYSC
-            | Instruction::ERET
-            | Instruction::HALT
-            | Instruction::ICINV
-            | Instruction::DCINV
-            | Instruction::DCCLEAN
-            | Instruction::FLUSH => InstructionFormat::X,
+            Mnemonic::SYSC
+            | Mnemonic::ERET
+            | Mnemonic::HALT
+            | Mnemonic::ICINV
+            | Mnemonic::DCINV
+            | Mnemonic::DCCLEAN
+            | Mnemonic::FLUSH => InstructionFormat::X,
             // Virtual instructions
-            Instruction::NOP => InstructionFormat::Virtual,
+            Mnemonic::NOP => InstructionFormat::Virtual,
         }
     }
 
@@ -134,64 +134,64 @@ impl Instruction {
         let mnemonic = mnemonic.to_lowercase();
         match mnemonic.as_str() {
             // A-type
-            "add" => Some(Instruction::ADD),
-            "addc" => Some(Instruction::ADDC),
-            "sub" => Some(Instruction::SUB),
-            "subc" => Some(Instruction::SUBC),
-            "and" => Some(Instruction::AND),
-            "or" => Some(Instruction::OR),
-            "xor" => Some(Instruction::XOR),
-            "not" => Some(Instruction::NOT),
-            "shl" => Some(Instruction::SHL),
-            "shr" => Some(Instruction::SHR),
-            "rol" => Some(Instruction::ROL),
-            "ror" => Some(Instruction::ROR),
-            "cmp" => Some(Instruction::CMP),
-            "tst" => Some(Instruction::TST),
-            "mov" => Some(Instruction::MOV),
-            "neg" => Some(Instruction::NEG),
+            "add" => Some(Mnemonic::ADD),
+            "addc" => Some(Mnemonic::ADDC),
+            "sub" => Some(Mnemonic::SUB),
+            "subc" => Some(Mnemonic::SUBC),
+            "and" => Some(Mnemonic::AND),
+            "or" => Some(Mnemonic::OR),
+            "xor" => Some(Mnemonic::XOR),
+            "not" => Some(Mnemonic::NOT),
+            "shl" => Some(Mnemonic::SHL),
+            "shr" => Some(Mnemonic::SHR),
+            "rol" => Some(Mnemonic::ROL),
+            "ror" => Some(Mnemonic::ROR),
+            "cmp" => Some(Mnemonic::CMP),
+            "tst" => Some(Mnemonic::TST),
+            "mov" => Some(Mnemonic::MOV),
+            "neg" => Some(Mnemonic::NEG),
 
             // I-type
-            "ldi" => Some(Instruction::LDI),
-            "addi" => Some(Instruction::ADDI),
-            "subi" => Some(Instruction::SUBI),
-            "andi" => Some(Instruction::ANDI),
-            "ori" => Some(Instruction::ORI),
+            "ldi" => Some(Mnemonic::LDI),
+            "addi" => Some(Mnemonic::ADDI),
+            "subi" => Some(Mnemonic::SUBI),
+            "andi" => Some(Mnemonic::ANDI),
+            "ori" => Some(Mnemonic::ORI),
 
             // M-type
-            "ld" => Some(Instruction::LD),
-            "st" => Some(Instruction::ST),
+            "ld" => Some(Mnemonic::LD),
+            "st" => Some(Mnemonic::ST),
 
             // B*-types
-            "br" => Some(Instruction::BR),
-            "beq" => Some(Instruction::BEQ),
-            "bne" => Some(Instruction::BNE),
-            "bcs" => Some(Instruction::BCS),
-            "bcc" => Some(Instruction::BCC),
-            "bmi" => Some(Instruction::BMI),
-            "bpl" => Some(Instruction::BPL),
+            "br" => Some(Mnemonic::BR),
+            "beq" => Some(Mnemonic::BEQ),
+            "bne" => Some(Mnemonic::BNE),
+            "bcs" => Some(Mnemonic::BCS),
+            "bcc" => Some(Mnemonic::BCC),
+            "bmi" => Some(Mnemonic::BMI),
+            "bpl" => Some(Mnemonic::BPL),
 
             // S-type
-            "push" => Some(Instruction::PUSH),
-            "pop" => Some(Instruction::POP),
-            "subsp" => Some(Instruction::SUBSP),
-            "addsp" => Some(Instruction::ADDSP),
+            "push" => Some(Mnemonic::PUSH),
+            "pop" => Some(Mnemonic::POP),
+            "subsp" => Some(Mnemonic::SUBSP),
+            "addsp" => Some(Mnemonic::ADDSP),
 
             // P-type
-            "poke" => Some(Instruction::POKE),
-            "peek" => Some(Instruction::PEEK),
+            "poke" => Some(Mnemonic::POKE),
+            "peek" => Some(Mnemonic::PEEK),
 
             // X-type
-            "sysc" => Some(Instruction::SYSC),
-            "eret" => Some(Instruction::ERET),
-            "halt" => Some(Instruction::HALT),
-            "icinv" => Some(Instruction::ICINV),
-            "dcinv" => Some(Instruction::DCINV),
-            "dcclean" => Some(Instruction::DCCLEAN),
-            "flush" => Some(Instruction::FLUSH),
+            "sysc" => Some(Mnemonic::SYSC),
+            "eret" => Some(Mnemonic::ERET),
+            "halt" => Some(Mnemonic::HALT),
+            "icinv" => Some(Mnemonic::ICINV),
+            "dcinv" => Some(Mnemonic::DCINV),
+            "dcclean" => Some(Mnemonic::DCCLEAN),
+            "flush" => Some(Mnemonic::FLUSH),
 
             // Virtual instructions
-            "nop" => Some(Instruction::NOP),
+            "nop" => Some(Mnemonic::NOP),
             _ => None,
         }
     }

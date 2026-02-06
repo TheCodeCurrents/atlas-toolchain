@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Instruction by mnemonic
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Instruction {
+pub enum Mnemonic {
     // A-type
     ADD,
     ADDC,
@@ -80,7 +80,7 @@ pub enum InstructionFormat {
 /// Resolved instruction with all operands specified, format is optimized for encoding and simulation
 /// ! Note: Not every possible combination of fields is valid for a given instruction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ResolvedInstruction {
+pub enum ParsedInstruction {
     A {
         op: AluOp,
         dest: RegisterIdentifier,
@@ -146,58 +146,58 @@ pub enum ResolvedInstruction {
     },
 }
 
-impl ResolvedInstruction {
+impl ParsedInstruction {
     pub fn line(&self) -> usize {
         match self {
-            ResolvedInstruction::A { line, .. } => *line,
-            ResolvedInstruction::I { line, .. } => *line,
-            ResolvedInstruction::M { line, .. } => *line,
-            ResolvedInstruction::BI { line, .. } => *line,
-            ResolvedInstruction::BR { line, .. } => *line,
-            ResolvedInstruction::S { line, .. } => *line,
-            ResolvedInstruction::P { line, .. } => *line,
-            ResolvedInstruction::X { line, .. } => *line,
+            ParsedInstruction::A { line, .. } => *line,
+            ParsedInstruction::I { line, .. } => *line,
+            ParsedInstruction::M { line, .. } => *line,
+            ParsedInstruction::BI { line, .. } => *line,
+            ParsedInstruction::BR { line, .. } => *line,
+            ParsedInstruction::S { line, .. } => *line,
+            ParsedInstruction::P { line, .. } => *line,
+            ParsedInstruction::X { line, .. } => *line,
         }
     }
 
     pub fn source_file(&self) -> Option<&str> {
         match self {
-            ResolvedInstruction::A { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::I { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::M { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::BI { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::BR { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::S { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::P { source_file, .. } => source_file.as_deref(),
-            ResolvedInstruction::X { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::A { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::I { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::M { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::BI { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::BR { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::S { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::P { source_file, .. } => source_file.as_deref(),
+            ParsedInstruction::X { source_file, .. } => source_file.as_deref(),
         }
     }
 
     pub fn with_source_file(self, source_file: Option<String>) -> Self {
         match self {
-            ResolvedInstruction::A { op, dest, source, line, .. } => {
-                ResolvedInstruction::A { op, dest, source, line, source_file }
+            ParsedInstruction::A { op, dest, source, line, .. } => {
+                ParsedInstruction::A { op, dest, source, line, source_file }
             }
-            ResolvedInstruction::I { op, dest, immediate, line, .. } => {
-                ResolvedInstruction::I { op, dest, immediate, line, source_file }
+            ParsedInstruction::I { op, dest, immediate, line, .. } => {
+                ParsedInstruction::I { op, dest, immediate, line, source_file }
             }
-            ResolvedInstruction::M { op, dest, base, offset, line, .. } => {
-                ResolvedInstruction::M { op, dest, base, offset, line, source_file }
+            ParsedInstruction::M { op, dest, base, offset, line, .. } => {
+                ParsedInstruction::M { op, dest, base, offset, line, source_file }
             }
-            ResolvedInstruction::BI { absolute, cond, operand, line, .. } => {
-                ResolvedInstruction::BI { absolute, cond, operand, line, source_file }
+            ParsedInstruction::BI { absolute, cond, operand, line, .. } => {
+                ParsedInstruction::BI { absolute, cond, operand, line, source_file }
             }
-            ResolvedInstruction::BR { absolute, cond, source, line, .. } => {
-                ResolvedInstruction::BR { absolute, cond, source, line, source_file }
+            ParsedInstruction::BR { absolute, cond, source, line, .. } => {
+                ParsedInstruction::BR { absolute, cond, source, line, source_file }
             }
-            ResolvedInstruction::S { op, register, line, .. } => {
-                ResolvedInstruction::S { op, register, line, source_file }
+            ParsedInstruction::S { op, register, line, .. } => {
+                ParsedInstruction::S { op, register, line, source_file }
             }
-            ResolvedInstruction::P { op, register, offset, line, .. } => {
-                ResolvedInstruction::P { op, register, offset, line, source_file }
+            ParsedInstruction::P { op, register, offset, line, .. } => {
+                ParsedInstruction::P { op, register, offset, line, source_file }
             }
-            ResolvedInstruction::X { op, operand, line, .. } => {
-                ResolvedInstruction::X { op, operand, line, source_file }
+            ParsedInstruction::X { op, operand, line, .. } => {
+                ParsedInstruction::X { op, operand, line, source_file }
             }
         }
     }

@@ -57,6 +57,7 @@ name = "atlas"
 version = "0.1.0"
 dependencies = [
  "atlas-assembler",
+ "atlas-files",
  "atlas-isa",
  "atlas-linker",
  "clap",
@@ -64,6 +65,14 @@ dependencies = [
 
 [[package]]
 name = "atlas-assembler"
+version = "0.1.0"
+dependencies = [
+ "atlas-files",
+ "atlas-isa",
+]
+
+[[package]]
+name = "atlas-files"
 version = "0.1.0"
 dependencies = [
  "atlas-isa",
@@ -82,7 +91,6 @@ dependencies = [
 name = "atlas-isa"
 version = "0.1.0"
 dependencies = [
- "bincode",
  "serde",
 ]
 
@@ -91,6 +99,7 @@ name = "atlas-linker"
 version = "0.1.0"
 dependencies = [
  "atlas-assembler",
+ "atlas-files",
  "atlas-isa",
 ]
 

@@ -6,7 +6,8 @@ pub use lexer::Lexer;
 pub use parser::Parser;
 pub use error::AssemblerError;
 
-use atlas_isa::{EncodingError, ObjectFile, Symbol, SymbolKind};
+use atlas_isa::EncodingError;
+use atlas_files::{ObjectFile, Symbol, SymbolKind};
 use std::fs::{self, File};
 use std::io::Write;
 

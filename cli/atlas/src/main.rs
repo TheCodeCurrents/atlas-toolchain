@@ -4,7 +4,8 @@ use args::Arguments;
 use clap::Parser;
 
 use crate::args::Command;
-use atlas_isa::{BranchCond, MOffset, ObjectFile, Operand, ParsedInstruction, SymbolKind, XOperand};
+use atlas_isa::{BranchCond, MOffset, Operand, ParsedInstruction, XOperand};
+use atlas_files::{ObjectFile, SymbolKind};
 
 fn print_hex_dump(bytes: &[u8]) {
     let mut offset = 0usize;

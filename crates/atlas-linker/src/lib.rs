@@ -9,7 +9,7 @@ pub use linker::{LabelMap, Linker};
 
 use std::fs::{self, File};
 use std::io::Write;
-use atlas_isa::{ObjectFile, SymbolKind};
+use atlas_files::{ObjectFile, SymbolKind};
 
 /// Link object files into a final executable binary
 pub fn link(object_files: &[&str], output: &str) -> Result<(), LinkerError> {

@@ -7,5 +7,6 @@ edition = "2024"
 atlas-isa = { path = "../../crates/atlas-isa" }
 atlas-assembler = { path = "../../crates/atlas-assembler" }
 atlas-linker = { path = "../../crates/atlas-linker" }
+atlas-files = { path = "../../crates/atlas-files" }
 
 clap = { version = "4.5", features = ["derive"] }

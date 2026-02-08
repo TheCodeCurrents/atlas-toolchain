@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::formats::FileFormat;
 
@@ -30,6 +30,7 @@ pub struct Relocation {
     pub offset: u32,
     pub symbol: String,
     pub addend: i32,
+    pub section: String,
 }
 
 pub struct ObjectFile {
@@ -138,7 +139,13 @@ impl FileFormat for ObjectFile {
             file.read_exact(&mut addend_bytes)?;
             let addend = i32::from_le_bytes(addend_bytes);
 
-            relocations.push(Relocation { offset, symbol, addend });
+            file.read_exact(&mut count_bytes)?;
+            let section_len = u32::from_le_bytes(count_bytes) as usize;
+            let mut section_bytes = vec![0u8; section_len];
+            file.read_exact(&mut section_bytes)?;
+            let section = String::from_utf8(section_bytes).map_err(|_| Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in relocation section"))?;
+
+            relocations.push(Relocation { offset, symbol, addend, section });
         }
 
         Ok(Self {
@@ -208,6 +215,10 @@ impl FileFormat for ObjectFile {
             file.write_all(&symbol_len.to_le_bytes())?;
             file.write_all(symbol_bytes)?;
             file.write_all(&reloc.addend.to_le_bytes())?;
+            let section_bytes = reloc.section.as_bytes();
+            let section_len = section_bytes.len() as u32;
+            file.write_all(&section_len.to_le_bytes())?;
+            file.write_all(section_bytes)?;
         }
 
         Ok(())

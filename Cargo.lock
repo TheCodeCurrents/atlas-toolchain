@@ -69,6 +69,7 @@ name = "atlas-assembler"
 version = "0.1.0"
 dependencies = [
  "atlas-files",
+ "atlas-inspect",
  "atlas-isa",
 ]
 
@@ -100,7 +101,6 @@ dependencies = [
 name = "atlas-linker"
 version = "0.1.0"
 dependencies = [
- "atlas-assembler",
  "atlas-files",
  "atlas-isa",
 ]

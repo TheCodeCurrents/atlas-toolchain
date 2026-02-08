@@ -46,6 +46,7 @@ impl Mnemonic {
             Mnemonic::BCC => "bcc",
             Mnemonic::BMI => "bmi",
             Mnemonic::BPL => "bpl",
+            Mnemonic::BOV => "bov",
 
             // S-type
             Mnemonic::PUSH => "push",
@@ -67,6 +68,8 @@ impl Mnemonic {
             Mnemonic::FLUSH => "flush",
             // Virtual instructions
             Mnemonic::NOP => "nop",
+            Mnemonic::INC => "inc",
+            Mnemonic::DEC => "dec",
         }
     }
 
@@ -107,7 +110,8 @@ impl Mnemonic {
             | Mnemonic::BCS
             | Mnemonic::BCC
             | Mnemonic::BMI
-            | Mnemonic::BPL => InstructionFormat::B,
+            | Mnemonic::BPL
+            | Mnemonic::BOV => InstructionFormat::B,
             // S-type
             Mnemonic::PUSH
             | Mnemonic::POP
@@ -126,7 +130,9 @@ impl Mnemonic {
             | Mnemonic::DCCLEAN
             | Mnemonic::FLUSH => InstructionFormat::X,
             // Virtual instructions
-            Mnemonic::NOP => InstructionFormat::Virtual,
+            Mnemonic::NOP
+            | Mnemonic::INC
+            | Mnemonic::DEC => InstructionFormat::Virtual,
         }
     }
 
@@ -170,6 +176,7 @@ impl Mnemonic {
             "bcc" => Some(Mnemonic::BCC),
             "bmi" => Some(Mnemonic::BMI),
             "bpl" => Some(Mnemonic::BPL),
+            "bov" => Some(Mnemonic::BOV),
 
             // S-type
             "push" => Some(Mnemonic::PUSH),
@@ -192,6 +199,8 @@ impl Mnemonic {
 
             // Virtual instructions
             "nop" => Some(Mnemonic::NOP),
+            "inc" => Some(Mnemonic::INC),
+            "dec" => Some(Mnemonic::DEC),
             _ => None,
         }
     }

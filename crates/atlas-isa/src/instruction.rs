@@ -42,6 +42,7 @@ pub enum Mnemonic {
     BCC,
     BMI,
     BPL,
+    BOV,
 
     // S-type
     PUSH,
@@ -64,6 +65,8 @@ pub enum Mnemonic {
 
     // Virtual instructions
     NOP,
+    INC,
+    DEC,
 }
 
 pub enum InstructionFormat {
@@ -124,7 +127,7 @@ pub enum ParsedInstruction {
     },
     S {
         op: StackOp,
-        register: RegisterIdentifier,
+        operand: u8,
         line: usize,
         #[serde(default)]
         source_file: Option<String>,
@@ -190,8 +193,8 @@ impl ParsedInstruction {
             ParsedInstruction::BR { absolute, cond, source, line, .. } => {
                 ParsedInstruction::BR { absolute, cond, source, line, source_file }
             }
-            ParsedInstruction::S { op, register, line, .. } => {
-                ParsedInstruction::S { op, register, line, source_file }
+            ParsedInstruction::S { op, operand, line, .. } => {
+                ParsedInstruction::S { op, operand, line, source_file }
             }
             ParsedInstruction::P { op, register, offset, line, .. } => {
                 ParsedInstruction::P { op, register, offset, line, source_file }

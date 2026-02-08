@@ -82,18 +82,20 @@ impl ParsedInstruction {
                 Ok(encoded)
             }
             ParsedInstruction::BR { absolute, cond, source, line: _, source_file: _ } => {
+                // BR-type: [15:12]=1001, [11]=abs, [10:8]=cond, [7:4]=rs_low, [3:0]=rs_high
                 let encoded = (9 << 12)
                     | ((*absolute as u16) << 11)
                     | ((*cond as u16) << 8)
-                    | ((source.high as u16) << 4)
-                    | (source.low as u16);
+                    | ((source.low as u16) << 4)
+                    | (source.high as u16);
 
                 Ok(encoded)
             }
-            ParsedInstruction::S { op, register, line: _, source_file: _ } => {
+            ParsedInstruction::S { op, operand, line: _, source_file: _ } => {
+                // S-type: [15:12]=1010, [11:8]=xop, [7:0]=operand (register or imm8)
                 let encoded = (10 << 12)
                     | ((*op as u16) << 8)
-                    | (*register as u16);
+                    | (*operand as u16);
 
                 Ok(encoded)
             }
@@ -115,15 +117,21 @@ impl ParsedInstruction {
                         });
                     }
                 };
-                let encoded = (11 << 12)
-                    | ((*op as u16) << 11)
+                // P-type: peek = type-field 1011, poke = type-field 1100
+                // [15:12]=type, [11:8]=register, [7:0]=offset
+                let type_field: u16 = match op {
+                    PeekPokeOp::PEEK => 0xB, // 1011
+                    PeekPokeOp::POKE => 0xC, // 1100
+                };
+                let encoded = (type_field << 12)
                     | ((*register as u16) << 8)
                     | (offset_val as u16);
 
                 Ok(encoded)
             }
             ParsedInstruction::X { op, operand, line: _, source_file: _ } => {
-                let encoded = (12 << 12)
+                // X-type: [15:12]=1101 (13)
+                let encoded = (13 << 12)
                     | ((*op as u16) << 8)
                     | match operand {
                         crate::operands::XOperand::Registers(source, destination) => {
@@ -242,6 +250,7 @@ impl ParsedInstruction {
                     4 => BranchCond::CC,
                     5 => BranchCond::MI,
                     6 => BranchCond::PL,
+                    7 => BranchCond::OV,
                     _ => return Err(format!("Invalid branch condition: {}", cond_val)),
                 };
 
@@ -254,11 +263,12 @@ impl ParsedInstruction {
                 })
             }
             9 => {
-                // BR-type: bits [15:12]=1001, absolute in [11], condition in [10:8], high in [7:4], low in [3:0]
+                // BR-type: bits [15:12]=1001, absolute in [11], condition in [10:8],
+                //          [7:4]=rs_low, [3:0]=rs_high
                 let absolute = ((encoded >> 11) & 1) != 0;
                 let cond_val = ((encoded >> 8) & 0x7) as u8;
-                let high = ((encoded >> 4) & 0xF) as u8;
-                let low = (encoded & 0xF) as u8;
+                let low = ((encoded >> 4) & 0xF) as u8;
+                let high = (encoded & 0xF) as u8;
 
                 let cond = match cond_val {
                     0 => BranchCond::Unconditional,
@@ -268,6 +278,7 @@ impl ParsedInstruction {
                     4 => BranchCond::CC,
                     5 => BranchCond::MI,
                     6 => BranchCond::PL,
+                    7 => BranchCond::OV,
                     _ => return Err(format!("Invalid branch condition: {}", cond_val)),
                 };
 
@@ -280,38 +291,34 @@ impl ParsedInstruction {
                 })
             }
             10 => {
-                // S-type: bits [15:12]=1010, operation in [11:8], register in [7:0]
+                // S-type: bits [15:12]=1010, xop in [11:8], operand in [7:0]
                 let op_val = ((encoded >> 8) & 0xF) as u8;
-                let register = (encoded & 0xFF) as u8;
+                let operand = (encoded & 0xFF) as u8;
 
                 let op = match op_val {
                     0 => StackOp::PUSH,
                     1 => StackOp::POP,
-                    2 => StackOp::SUBSP,
-                    3 => StackOp::ADDSP,
+                    2 => StackOp::SUBSP_IMM,
+                    3 => StackOp::SUBSP_REG,
+                    4 => StackOp::ADDSP_IMM,
+                    5 => StackOp::ADDSP_REG,
                     _ => return Err(format!("Invalid stack operation: {}", op_val)),
                 };
 
                 Ok(ParsedInstruction::S {
                     op,
-                    register,
+                    operand,
                     line: 0,
                     source_file: None,
                 })
             }
             11 => {
-                // P-type: bits [15:12]=1011, operation in [11], register in [10:8], offset in [7:0]
-                let op_val = ((encoded >> 11) & 1) as u8;
-                let register = ((encoded >> 8) & 0x7) as u8;
+                // P-type peek: [15:12]=1011, [11:8]=register, [7:0]=offset
+                let register = ((encoded >> 8) & 0xF) as u8;
                 let offset = (encoded & 0xFF) as u16;
-                let op = match op_val {
-                    0 => PeekPokeOp::POKE,
-                    1 => PeekPokeOp::PEEK,
-                    _ => return Err(format!("Invalid port operation: {}", op_val)),
-                };
 
                 Ok(ParsedInstruction::P {
-                    op,
+                    op: PeekPokeOp::PEEK,
                     register,
                     offset: Operand::Immediate(offset),
                     line: 0,
@@ -319,11 +326,22 @@ impl ParsedInstruction {
                 })
             }
             12 => {
-                // X-type: bits [15:12]=1100, operation in [11:8], operand in [7:0]
+                // P-type poke: [15:12]=1100, [11:8]=register, [7:0]=offset
+                let register = ((encoded >> 8) & 0xF) as u8;
+                let offset = (encoded & 0xFF) as u16;
+
+                Ok(ParsedInstruction::P {
+                    op: PeekPokeOp::POKE,
+                    register,
+                    offset: Operand::Immediate(offset),
+                    line: 0,
+                    source_file: None,
+                })
+            }
+            13 => {
+                // X-type: bits [15:12]=1101, operation in [11:8], operand in [7:0]
                 let op_val = ((encoded >> 8) & 0xF) as u8;
-                let operand_bits = (encoded & 0xFF) as u8;
-                let source = ((operand_bits >> 4) & 0xF) as u8;
-                let destination = (operand_bits & 0xF) as u8;
+                let operand_val = (encoded & 0xFF) as u8;
 
                 let op = match op_val {
                     0 => XTypeOp::SYSC,
@@ -336,9 +354,23 @@ impl ParsedInstruction {
                     _ => return Err(format!("Invalid extended operation: {}", op_val)),
                 };
 
+                // Determine operand based on instruction type
+                let operand = match op {
+                    XTypeOp::SYSC => XOperand::Immediate(operand_val),
+                    _ => {
+                        if operand_val == 0 {
+                            XOperand::None
+                        } else {
+                            let source = (operand_val >> 4) & 0xF;
+                            let destination = operand_val & 0xF;
+                            XOperand::Registers(source, destination)
+                        }
+                    }
+                };
+
                 Ok(ParsedInstruction::X {
                     op,
-                    operand: XOperand::Registers(source, destination),
+                    operand,
                     line: 0,
                     source_file: None,
                 })

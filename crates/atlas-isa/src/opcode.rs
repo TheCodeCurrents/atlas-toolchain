@@ -102,6 +102,7 @@ pub enum BranchCond {
     CC,
     MI,
     PL,
+    OV,
 }
 
 impl BranchCond {
@@ -114,6 +115,7 @@ impl BranchCond {
             Mnemonic::BCC => Some(BranchCond::CC),
             Mnemonic::BMI => Some(BranchCond::MI),
             Mnemonic::BPL => Some(BranchCond::PL),
+            Mnemonic::BOV => Some(BranchCond::OV),
             _ => None,
         }
     }
@@ -122,11 +124,14 @@ impl BranchCond {
 /// Stack operation codes
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
 pub enum StackOp {
     PUSH = 0,
     POP,
-    SUBSP,
-    ADDSP,
+    SUBSP_IMM,
+    SUBSP_REG,
+    ADDSP_IMM,
+    ADDSP_REG,
 }
 
 impl StackOp {
@@ -134,8 +139,7 @@ impl StackOp {
         match instruction {
             Mnemonic::PUSH => Some(StackOp::PUSH),
             Mnemonic::POP => Some(StackOp::POP),
-            Mnemonic::SUBSP => Some(StackOp::SUBSP),
-            Mnemonic::ADDSP => Some(StackOp::ADDSP),
+            // SUBSP/ADDSP are resolved to _IMM or _REG variants by the parser
             _ => None,
         }
     }

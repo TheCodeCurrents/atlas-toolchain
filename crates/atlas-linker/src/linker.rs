@@ -56,7 +56,7 @@ impl LabelMap {
 }
 
 pub struct Linker {
-    label_map: LabelMap,
+    pub label_map: LabelMap,
 }
 
 impl Linker {

@@ -5,6 +5,7 @@ pub enum LinkerErrorKind {
     Io,
     ObjectFile,
     UnresolvedLabel,
+    DuplicateSymbol,
     Encoding,
 }
 
@@ -14,6 +15,7 @@ impl Display for LinkerErrorKind {
             LinkerErrorKind::Io => "IO",
             LinkerErrorKind::ObjectFile => "ObjectFile",
             LinkerErrorKind::UnresolvedLabel => "UnresolvedLabel",
+            LinkerErrorKind::DuplicateSymbol => "DuplicateSymbol",
             LinkerErrorKind::Encoding => "Encoding",
         };
         write!(f, "{}", label)

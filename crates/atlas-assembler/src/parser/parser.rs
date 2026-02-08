@@ -1,7 +1,7 @@
 use atlas_isa::{AluOp, BranchCond, BranchOperand, ImmOp, Mnemonic, MemOp, Operand, PeekPokeOp, ParsedInstruction, StackOp, XTypeOp, instruction::InstructionFormat, operands::{MOffset, RegisterPairIdentifier, XOperand}};
 use crate::lexer::{Directive, LexError, Lexer, SpannedToken, Token};
 
-use crate::{parser::error::ParseError, parser::symbols::SymbolTable};
+use crate::{parser::error::ParseError, parser::symbols::{ParsedItem, SymbolTable}};
 
 
 pub struct Parser<'a> {
@@ -11,10 +11,12 @@ pub struct Parser<'a> {
     last_line: usize,
     /// Single-token lookahead buffer used when peeking after a label definition.
     pending: Option<SpannedToken>,
+    /// The current section (defaults to ".text").
+    current_section: String,
 }
 
 impl<'a> Iterator for Parser<'a> {
-    type Item = Result<ParsedInstruction, ParseError>;
+    type Item = Result<ParsedItem, ParseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // get next token, draining the lookahead buffer first
@@ -33,13 +35,12 @@ impl<'a> Iterator for Parser<'a> {
                 self.next()
             }
             Token::Directive(name) => {
-                // handle directives (e.g. .import label)
-                if let Err(err) = self.handle_directive(name) {
-                    return Some(Err(err));
+                // handle directives
+                match self.handle_directive(name) {
+                    Ok(Some(item)) => return Some(Ok(item)),
+                    Ok(None) => return self.next(),
+                    Err(err) => return Some(Err(err)),
                 }
-
-                // call again so it returns the next instruction
-                self.next()
             }
             Token::LabelDef(name) => {
                 // Peek at the next token to see if a directive follows.
@@ -70,13 +71,15 @@ impl<'a> Iterator for Parser<'a> {
                     }
                     Some(tok) => {
                         // No directive – this is a normal positional label.
-                        self.symbols.insert(name, crate::parser::symbols::Symbol::Label(self.pos));
+                        let section = self.current_section.clone();
+                        self.symbols.insert(name, crate::parser::symbols::Symbol::Label { offset: self.pos, section });
                         // Put the token back so it gets processed normally.
                         self.pending = Some(tok);
                     }
                     None => {
                         // Label at end-of-file.
-                        self.symbols.insert(name, crate::parser::symbols::Symbol::Label(self.pos));
+                        let section = self.current_section.clone();
+                        self.symbols.insert(name, crate::parser::symbols::Symbol::Label { offset: self.pos, section });
                     }
                 }
 
@@ -85,10 +88,13 @@ impl<'a> Iterator for Parser<'a> {
             }
             Token::Mnemonic(mnemonic) => {
                 let result = self.process_instruction(mnemonic, spanned.span.line);
-                if result.is_ok() {
-                    self.pos += 2;
+                match result {
+                    Ok(instr) => {
+                        self.pos += 2;
+                        Some(Ok(ParsedItem::Instruction(instr)))
+                    }
+                    Err(e) => Some(Err(e)),
                 }
-                Some(result)
             }
             other => {
                 // expected Directive, LabelDef, or Mnemonic
@@ -110,6 +116,7 @@ impl<'a> Parser<'a> {
             symbols: SymbolTable::new(),
             last_line: 1,
             pending: None,
+            current_section: ".text".to_string(),
         }
     }
 
@@ -133,12 +140,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn handle_directive(&mut self, directive: Directive) -> Result<(), ParseError> {
+    fn handle_directive(&mut self, directive: Directive) -> Result<Option<ParsedItem>, ParseError> {
         match directive {
+            Directive::Global => {
+                let next: SpannedToken = self.next_token()?;
+                if let Token::LabelRef(name) = next.token {
+                    self.symbols.export(name);
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        line: next.span.line,
+                        expected: "label after .global",
+                        found: Self::token_description(&next.token),
+                    });
+                }
+                self.skip_to_line_end()?;
+                Ok(None)
+            }
             Directive::Import => {
                 let next: SpannedToken = self.next_token()?;
                 if let Token::LabelRef(name) = next.token {
-                    self.symbols.insert(name, crate::parser::symbols::Symbol::External);
+                    self.symbols.import(name);
                 } else {
                     return Err(ParseError::UnexpectedToken {
                         line: next.span.line,
@@ -146,20 +167,8 @@ impl<'a> Parser<'a> {
                         found: Self::token_description(&next.token),
                     });
                 }
-                self.skip_to_line_end()
-            }
-            Directive::Export => {
-                let next: SpannedToken = self.next_token()?;
-                if let Token::LabelRef(name) = next.token {
-                    self.symbols.export(name);
-                } else {
-                    return Err(ParseError::UnexpectedToken {
-                        line: next.span.line,
-                        expected: "label after .export",
-                        found: Self::token_description(&next.token),
-                    });
-                }
-                self.skip_to_line_end()
+                self.skip_to_line_end()?;
+                Ok(None)
             }
             Directive::Imm => {
                 // .imm without a preceding label is invalid
@@ -169,7 +178,155 @@ impl<'a> Parser<'a> {
                     found: ".imm directive".to_string(),
                 })
             }
+            Directive::Text => {
+                self.current_section = ".text".to_string();
+                self.pos = 0;
+                self.skip_to_line_end()?;
+                Ok(Some(ParsedItem::SectionChange(".text".to_string())))
+            }
+            Directive::Data => {
+                self.current_section = ".data".to_string();
+                self.pos = 0;
+                self.skip_to_line_end()?;
+                Ok(Some(ParsedItem::SectionChange(".data".to_string())))
+            }
+            Directive::Bss => {
+                self.current_section = ".bss".to_string();
+                self.pos = 0;
+                self.skip_to_line_end()?;
+                Ok(Some(ParsedItem::SectionChange(".bss".to_string())))
+            }
+            Directive::Section => {
+                // .section <name>
+                let next: SpannedToken = self.next_token()?;
+                let name = match next.token {
+                    Token::LabelRef(name) => name,
+                    other => {
+                        return Err(ParseError::UnexpectedToken {
+                            line: next.span.line,
+                            expected: "section name after .section",
+                            found: Self::token_description(&other),
+                        });
+                    }
+                };
+                let section_name = if name.starts_with('.') { name } else { format!(".{}", name) };
+                self.current_section = section_name.clone();
+                self.pos = 0;
+                self.skip_to_line_end()?;
+                Ok(Some(ParsedItem::SectionChange(section_name)))
+            }
+            Directive::Byte => {
+                let data = self.collect_byte_list()?;
+                self.pos += data.len() as u32;
+                Ok(Some(ParsedItem::Data(data)))
+            }
+            Directive::Word => {
+                let data = self.collect_word_list()?;
+                self.pos += data.len() as u32;
+                Ok(Some(ParsedItem::Data(data)))
+            }
+            Directive::Ascii => {
+                let data = self.collect_ascii_string()?;
+                self.pos += data.len() as u32;
+                Ok(Some(ParsedItem::Data(data)))
+            }
         }
+    }
+
+    /// Collect a comma-separated list of byte values: `.byte 0x41, 0x42, 0x43`
+    fn collect_byte_list(&mut self) -> Result<Vec<u8>, ParseError> {
+        let mut bytes = Vec::new();
+        loop {
+            let tok = self.next_token()?;
+            match tok.token {
+                Token::Immediate(imm) => {
+                    if imm.value < -128 || imm.value > 255 {
+                        return Err(ParseError::ImmediateOutOfRange {
+                            line: tok.span.line,
+                            value: imm.value,
+                            min: -128,
+                            max: 255,
+                        });
+                    }
+                    bytes.push(imm.value as u8);
+                }
+                Token::NewLine | Token::EoF => break,
+                other => {
+                    return Err(ParseError::UnexpectedToken {
+                        line: tok.span.line,
+                        expected: "byte value",
+                        found: Self::token_description(&other),
+                    });
+                }
+            }
+            // check for comma or end of line
+            let next = self.next_token()?;
+            match next.token {
+                Token::Comma => continue,
+                Token::NewLine | Token::EoF => break,
+                other => {
+                    return Err(ParseError::UnexpectedToken {
+                        line: next.span.line,
+                        expected: "',' or end of line",
+                        found: Self::token_description(&other),
+                    });
+                }
+            }
+        }
+        Ok(bytes)
+    }
+
+    /// Collect a comma-separated list of 16-bit word values: `.word 0x1234, 0x5678`
+    fn collect_word_list(&mut self) -> Result<Vec<u8>, ParseError> {
+        let mut bytes = Vec::new();
+        loop {
+            let tok = self.next_token()?;
+            match tok.token {
+                Token::Immediate(imm) => {
+                    if imm.value < -32768 || imm.value > 65535 {
+                        return Err(ParseError::ImmediateOutOfRange {
+                            line: tok.span.line,
+                            value: imm.value,
+                            min: -32768,
+                            max: 65535,
+                        });
+                    }
+                    let word = imm.value as u16;
+                    // little-endian
+                    bytes.push(word as u8);
+                    bytes.push((word >> 8) as u8);
+                }
+                Token::NewLine | Token::EoF => break,
+                other => {
+                    return Err(ParseError::UnexpectedToken {
+                        line: tok.span.line,
+                        expected: "word value",
+                        found: Self::token_description(&other),
+                    });
+                }
+            }
+            // check for comma or end of line
+            let next = self.next_token()?;
+            match next.token {
+                Token::Comma => continue,
+                Token::NewLine | Token::EoF => break,
+                other => {
+                    return Err(ParseError::UnexpectedToken {
+                        line: next.span.line,
+                        expected: "',' or end of line",
+                        found: Self::token_description(&other),
+                    });
+                }
+            }
+        }
+        Ok(bytes)
+    }
+
+    /// Collect an ASCII string literal. Since the lexer doesn't have string tokens yet,
+    /// this reads bytes as a comma-separated list: `.ascii 0x48, 0x65, 0x6C`
+    fn collect_ascii_string(&mut self) -> Result<Vec<u8>, ParseError> {
+        // For now, treat the same as .byte
+        self.collect_byte_list()
     }
 
     fn next_token(&mut self) -> Result<SpannedToken, ParseError> {
@@ -356,21 +513,18 @@ impl<'a> Parser<'a> {
                         if op == "-" && imm_val > 0 {
                             imm_val = -imm_val;
                         }
-                        if imm_val < -8 || imm_val > 5 {
+                        if imm_val < -5 || imm_val > 7 {
                             return Err(ParseError::ImmediateOutOfRange {
                                 line: offset_token.span.line,
                                 value: imm_val,
-                                min: -8,
-                                max: 5,
+                                min: -5,
+                                max: 7,
                             });
                         }
-                        // Map special offsets to registers
-                        match imm_val {
-                            -6 => MOffset::SR(10), // TR
-                            -7 => MOffset::SR(12), // SP
-                            -8 => MOffset::SR(14), // PC
-                            val => MOffset::Offset8(val as u8),
-                        }
+                        // Map special offsets to SPR codes via negative sentinels
+                        // (values -6, -7, -8 are outside the valid range and
+                        //  correspond to the reserved SPR codes in the 4-bit field)
+                        MOffset::Offset8(imm_val as u8)
                     }
                     other => {
                         return Err(ParseError::UnexpectedToken {
@@ -498,29 +652,125 @@ impl<'a> Parser<'a> {
                 }
             },
             InstructionFormat::S => {
-                // S-type: register only
-                let reg = self.expect_register()?;
-                self.expect_newline()?;
+                // S-type: push/pop take a register; subsp/addsp take register OR immediate
+                let next_tok = self.next_token()?;
 
-                let op = StackOp::from_instruction(instruction)
-                    .ok_or(ParseError::InvalidParameters {
+                match instruction {
+                    Mnemonic::PUSH => {
+                        let reg = match next_tok.token {
+                            Token::Register(r) => r,
+                            other => return Err(ParseError::UnexpectedToken {
+                                line: self.last_line,
+                                expected: "register",
+                                found: Self::token_description(&other),
+                            }),
+                        };
+                        self.expect_newline()?;
+                        Ok(ParsedInstruction::S {
+                            op: StackOp::PUSH,
+                            operand: reg,
+                            line,
+                            source_file: None,
+                        })
+                    }
+                    Mnemonic::POP => {
+                        let reg = match next_tok.token {
+                            Token::Register(r) => r,
+                            other => return Err(ParseError::UnexpectedToken {
+                                line: self.last_line,
+                                expected: "register",
+                                found: Self::token_description(&other),
+                            }),
+                        };
+                        if reg == 0 {
+                            return Err(ParseError::WriteToR0 {
+                                line,
+                                instruction: instruction.mnemonic().to_string(),
+                            });
+                        }
+                        self.expect_newline()?;
+                        Ok(ParsedInstruction::S {
+                            op: StackOp::POP,
+                            operand: reg,
+                            line,
+                            source_file: None,
+                        })
+                    }
+                    Mnemonic::SUBSP => {
+                        match next_tok.token {
+                            Token::Register(reg) => {
+                                self.expect_newline()?;
+                                Ok(ParsedInstruction::S {
+                                    op: StackOp::SUBSP_REG,
+                                    operand: reg,
+                                    line,
+                                    source_file: None,
+                                })
+                            }
+                            Token::Immediate(imm) => {
+                                if imm.value < 0 || imm.value > 255 {
+                                    return Err(ParseError::ImmediateOutOfRange {
+                                        line: self.last_line,
+                                        value: imm.value,
+                                        min: 0,
+                                        max: 255,
+                                    });
+                                }
+                                self.expect_newline()?;
+                                Ok(ParsedInstruction::S {
+                                    op: StackOp::SUBSP_IMM,
+                                    operand: imm.value as u8,
+                                    line,
+                                    source_file: None,
+                                })
+                            }
+                            other => Err(ParseError::UnexpectedToken {
+                                line: self.last_line,
+                                expected: "register or immediate",
+                                found: Self::token_description(&other),
+                            }),
+                        }
+                    }
+                    Mnemonic::ADDSP => {
+                        match next_tok.token {
+                            Token::Register(reg) => {
+                                self.expect_newline()?;
+                                Ok(ParsedInstruction::S {
+                                    op: StackOp::ADDSP_REG,
+                                    operand: reg,
+                                    line,
+                                    source_file: None,
+                                })
+                            }
+                            Token::Immediate(imm) => {
+                                if imm.value < 0 || imm.value > 255 {
+                                    return Err(ParseError::ImmediateOutOfRange {
+                                        line: self.last_line,
+                                        value: imm.value,
+                                        min: 0,
+                                        max: 255,
+                                    });
+                                }
+                                self.expect_newline()?;
+                                Ok(ParsedInstruction::S {
+                                    op: StackOp::ADDSP_IMM,
+                                    operand: imm.value as u8,
+                                    line,
+                                    source_file: None,
+                                })
+                            }
+                            other => Err(ParseError::UnexpectedToken {
+                                line: self.last_line,
+                                expected: "register or immediate",
+                                found: Self::token_description(&other),
+                            }),
+                        }
+                    }
+                    _ => Err(ParseError::InvalidParameters {
                         line,
                         details: format!("Instruction '{}' is not a valid stack op", instruction.mnemonic()),
-                    })?;
-
-                if reg == 0 && op == StackOp::POP {
-                    return Err(ParseError::WriteToR0 {
-                        line,
-                        instruction: instruction.mnemonic().to_string(),
-                    });
+                    }),
                 }
-
-                Ok(ParsedInstruction::S {
-                    op,
-                    register: reg,
-                    line,
-                    source_file: None,
-                })
             },
             InstructionFormat::P => {
                 // P-type: register, offset (immediate or label)
@@ -532,7 +782,7 @@ impl<'a> Parser<'a> {
                 let op = PeekPokeOp::from_instruction(instruction)
                     .ok_or(ParseError::InvalidParameters {
                         line,
-                        details: format!("Instruction '{}' is not a valid port op", instruction.mnemonic()),
+                        details: format!("Instruction '{}' is not a valid peek/poke op", instruction.mnemonic()),
                     })?;
 
                 if reg == 0 && op == PeekPokeOp::PEEK {
@@ -607,17 +857,61 @@ impl<'a> Parser<'a> {
                 })
             },
             InstructionFormat::Virtual => {
-                // Virtual instructions like NOP
-                self.expect_newline()?;
-                
-                // NOP is typically treated as MOV r0, r0
-                Ok(ParsedInstruction::A {
-                    op: AluOp::MOV,
-                    dest: 0,
-                    source: 0,
-                    line,
-                    source_file: None,
-                })
+                match instruction {
+                    Mnemonic::NOP => {
+                        // NOP = add r0, r0  (encodes as 0x0000)
+                        self.expect_newline()?;
+                        Ok(ParsedInstruction::A {
+                            op: AluOp::ADD,
+                            dest: 0,
+                            source: 0,
+                            line,
+                            source_file: None,
+                        })
+                    }
+                    Mnemonic::INC => {
+                        // INC rd = addi rd, 1
+                        let rd = self.expect_register()?;
+                        self.expect_newline()?;
+                        if rd == 0 {
+                            return Err(ParseError::WriteToR0 {
+                                line,
+                                instruction: instruction.mnemonic().to_string(),
+                            });
+                        }
+                        Ok(ParsedInstruction::I {
+                            op: ImmOp::ADDI,
+                            dest: rd,
+                            immediate: Operand::Immediate(1),
+                            line,
+                            source_file: None,
+                        })
+                    }
+                    Mnemonic::DEC => {
+                        // DEC rd = subi rd, 1
+                        let rd = self.expect_register()?;
+                        self.expect_newline()?;
+                        if rd == 0 {
+                            return Err(ParseError::WriteToR0 {
+                                line,
+                                instruction: instruction.mnemonic().to_string(),
+                            });
+                        }
+                        Ok(ParsedInstruction::I {
+                            op: ImmOp::SUBI,
+                            dest: rd,
+                            immediate: Operand::Immediate(1),
+                            line,
+                            source_file: None,
+                        })
+                    }
+                    _ => {
+                        Err(ParseError::InvalidParameters {
+                            line,
+                            details: format!("Unknown virtual instruction '{}'", instruction.mnemonic()),
+                        })
+                    }
+                }
             }
         }
     }

@@ -1,10 +1,12 @@
 pub mod bin;
 pub mod elf;
+pub mod hex;
 pub mod obj;
 
 pub enum FileType {
     Bin,
     Elf,
+    Hex,
     Obj,
 }
 

@@ -43,4 +43,9 @@ pub enum Command {
         #[arg(short = 'f', long = "format")]
         format: Option<String>,
     },
+    Disasm {
+        /// input file to disassemble
+        #[arg(value_name = "INPUT")]
+        input: String,
+    },
 }

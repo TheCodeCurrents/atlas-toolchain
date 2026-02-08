@@ -83,7 +83,21 @@ fn main() {
         Command::Inspect { .. } => {
             eprintln!("Inspect command is not implemented yet.");
             std::process::exit(1);
-        }
+        },
+        Command::Disasm { input } => {
+            match ObjectFile::from_file(&input) {
+                Ok(obj) => {
+                    let labels = build_label_map(&obj);
+                    for sec in &obj.sections {
+                        if sec.name == ".text" {
+                            disassemble(&sec.data, &labels);
+                        }
+                    }
+                }
+                Err(e) => eprintln!("Failed to read object file '{}': {}", input, e),
+            }
+            Ok(())
+        },
     };
 
     if let Err(e) = result {

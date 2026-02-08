@@ -1,0 +1,9 @@
+[package]
+name = "atlas-simulator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+atlas-isa = { path = "../atlas-isa" }
+atlas-assembler = { path = "../atlas-assembler" }
+atlas-linker = { path = "../atlas-linker" }

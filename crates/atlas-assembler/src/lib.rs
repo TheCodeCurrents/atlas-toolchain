@@ -7,9 +7,9 @@ pub use parser::Parser;
 pub use error::AssemblerError;
 
 use atlas_isa::EncodingError;
-use atlas_files::{ObjectFile, Symbol, SymbolKind};
+use atlas_files::{ObjectFile, Symbol, SymbolBinding, FileFormat};
 use std::fs::{self, File};
-use std::io::Write;
+
 
 /// Assemble source file into an object file (.o format)
 /// The object file contains unresolved instructions that will be linked later
@@ -34,7 +34,7 @@ pub fn assemble(src: &str, output: &str) -> Result<(), AssemblerError> {
     for (name, symbol) in parser.symbols().iter() {
         match symbol {
             crate::parser::symbols::Symbol::Label(address) => {
-                let address = u16::try_from(*address).map_err(|_| {
+                let value = u32::try_from(*address).map_err(|_| {
                     AssemblerError::EncodingError(EncodingError {
                         line: 0,
                         message: format!(
@@ -43,34 +43,37 @@ pub fn assemble(src: &str, output: &str) -> Result<(), AssemblerError> {
                         ),
                     })
                 })?;
-                let kind = if parser.symbols().is_exported(name) {
-                    SymbolKind::Export
+                let binding = if parser.symbols().is_exported(name) {
+                    SymbolBinding::Global
                 } else {
-                    SymbolKind::Local
+                    SymbolBinding::Local
                 };
                 symbols.push(Symbol {
                     name: name.clone(),
-                    address: Some(address),
-                    kind,
+                    value,
+                    section: Some(".text".to_string()), // or appropriate section
+                    binding,
                 });
             }
             crate::parser::symbols::Symbol::External => {
                 symbols.push(Symbol {
                     name: name.clone(),
-                    address: None,
-                    kind: SymbolKind::Import,
+                    value: 0,
+                    section: None,
+                    binding: SymbolBinding::Global,
                 });
             }
             crate::parser::symbols::Symbol::Constant(value) => {
-                let kind = if parser.symbols().is_exported(name) {
-                    SymbolKind::Export
+                let binding = if parser.symbols().is_exported(name) {
+                    SymbolBinding::Global
                 } else {
-                    SymbolKind::Constant
+                    SymbolBinding::Local
                 };
                 symbols.push(Symbol {
                     name: name.clone(),
-                    address: Some(*value),
-                    kind,
+                    value: u32::from(*value),
+                    section: Some(".const".to_string()), // or appropriate section
+                    binding,
                 });
             }
         }
@@ -84,28 +87,20 @@ pub fn assemble(src: &str, output: &str) -> Result<(), AssemblerError> {
             }));
         }
     }
-    
+
     // Create object file with unresolved instructions
-    let mut object_file = ObjectFile::with_instructions(instructions);
-    object_file.symbols = symbols;
-    
-    // Serialize object file to bytes
-    let bytes = object_file.to_bytes().map_err(|e| AssemblerError::EncodingError(
-        atlas_isa::EncodingError {
-            line: 0,
-            message: format!("Failed to serialize object file: {}", e),
-        }
-    ))?;
-    
-    // Write object file
-    let mut file = File::create(output).map_err(|e| AssemblerError::IoError {
-        operation: format!("Failed to create output file '{}'", output),
-        source: e,
-    })?;
-    file.write_all(&bytes).map_err(|e| AssemblerError::IoError {
+    let object_file = ObjectFile {
+        sections: vec![], // TODO: fill with actual sections
+        symbols,
+        relocations: vec![], // TODO: fill with actual relocations
+        version: 1,
+    };
+
+    // Serialize object file to file
+    object_file.to_file(output).map_err(|e| AssemblerError::IoError {
         operation: format!("Failed to write to output file '{}'", output),
         source: e,
     })?;
-    
+
     Ok(())
 }

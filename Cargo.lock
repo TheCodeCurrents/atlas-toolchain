@@ -58,6 +58,7 @@ version = "0.1.0"
 dependencies = [
  "atlas-assembler",
  "atlas-files",
+ "atlas-inspect",
  "atlas-isa",
  "atlas-linker",
  "clap",
@@ -84,6 +85,7 @@ dependencies = [
 name = "atlas-inspect"
 version = "0.1.0"
 dependencies = [
+ "atlas-files",
  "atlas-isa",
 ]
 

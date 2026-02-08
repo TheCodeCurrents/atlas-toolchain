@@ -9,15 +9,22 @@ const MAGIC: &[u8; 4] = b"ATOB";
 pub struct Section {
     pub name: String,
     pub start: u32,
-    pub size: u32,
     pub data: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum SymbolBinding {
+    Local = 0,
+    Global = 1,
 }
 
 pub struct Symbol {
     pub name: String,
-    pub addr: Option<u32>,
-    pub section: String,
+    pub value: u32,                  // offset in section
+    pub section: Option<String>,     // None = undefined (import)
+    pub binding: SymbolBinding,
 }
+
 
 pub struct Relocation {
     pub offset: u32,
@@ -75,7 +82,7 @@ impl FileFormat for ObjectFile {
             let mut data = vec![0u8; size as usize];
             file.read_exact(&mut data)?;
 
-            sections.push(Section { name, start, size, data });
+            sections.push(Section { name, start, data });
         }
 
         // read symbols
@@ -87,23 +94,31 @@ impl FileFormat for ObjectFile {
             file.read_exact(&mut name_bytes)?;
             let name = String::from_utf8(name_bytes).map_err(|_| Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in symbol name"))?;
 
-            let mut addr_flag = [0u8; 1];
-            file.read_exact(&mut addr_flag)?;
-            let addr = if addr_flag[0] == 1 {
-                let mut addr_bytes = [0u8; 4];
-                file.read_exact(&mut addr_bytes)?;
-                Some(u32::from_le_bytes(addr_bytes))
+            let mut value_bytes = [0u8; 4];
+            file.read_exact(&mut value_bytes)?;
+            let value = u32::from_le_bytes(value_bytes);
+
+            let mut section_flag = [0u8; 1];
+            file.read_exact(&mut section_flag)?;
+            let section = if section_flag[0] == 1 {
+                file.read_exact(&mut count_bytes)?;
+                let section_len = u32::from_le_bytes(count_bytes) as usize;
+                let mut section_bytes = vec![0u8; section_len];
+                file.read_exact(&mut section_bytes)?;
+                Some(String::from_utf8(section_bytes).map_err(|_| Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in symbol section"))?)
             } else {
                 None
             };
 
-            file.read_exact(&mut count_bytes)?;
-            let section_len = u32::from_le_bytes(count_bytes) as usize;
-            let mut section_bytes = vec![0u8; section_len];
-            file.read_exact(&mut section_bytes)?;
-            let section = String::from_utf8(section_bytes).map_err(|_| Error::new(ErrorKind::InvalidData, "Invalid UTF-8 in symbol section"))?;
+            let mut binding_byte = [0u8; 1];
+            file.read_exact(&mut binding_byte)?;
+            let binding = match binding_byte[0] {
+                0 => SymbolBinding::Local,
+                1 => SymbolBinding::Global,
+                _ => return Err(Error::new(ErrorKind::InvalidData, "Invalid symbol binding")),
+            };
 
-            symbols.push(Symbol { name, addr, section });
+            symbols.push(Symbol { name, value, section, binding });
         }
 
         // read relocations
@@ -156,7 +171,7 @@ impl FileFormat for ObjectFile {
             file.write_all(&name_len.to_le_bytes())?;
             file.write_all(name_bytes)?;
             file.write_all(&section.start.to_le_bytes())?;
-            file.write_all(&section.size.to_le_bytes())?;
+            file.write_all(&(section.data.len() as u32).to_le_bytes())?;
             file.write_all(&section.data)?;
         }
 
@@ -166,19 +181,23 @@ impl FileFormat for ObjectFile {
             let name_len = name_bytes.len() as u32;
             file.write_all(&name_len.to_le_bytes())?;
             file.write_all(name_bytes)?;
-            match symbol.addr {
-                Some(addr) => {
-                    file.write_all(&1u8.to_le_bytes())?; // has address
-                    file.write_all(&addr.to_le_bytes())?;
+
+            file.write_all(&symbol.value.to_le_bytes())?;
+
+            match &symbol.section {
+                Some(section_name) => {
+                    file.write_all(&1u8.to_le_bytes())?;
+                    let section_bytes = section_name.as_bytes();
+                    let section_len = section_bytes.len() as u32;
+                    file.write_all(&section_len.to_le_bytes())?;
+                    file.write_all(section_bytes)?;
                 }
                 None => {
-                    file.write_all(&0u8.to_le_bytes())?; // no address
+                    file.write_all(&0u8.to_le_bytes())?;
                 }
             }
-            let section_bytes = symbol.section.as_bytes();
-            let section_len = section_bytes.len() as u32;
-            file.write_all(&section_len.to_le_bytes())?;
-            file.write_all(section_bytes)?;
+
+            file.write_all(&(symbol.binding as u8).to_le_bytes())?;
         }
 
         // write relocations

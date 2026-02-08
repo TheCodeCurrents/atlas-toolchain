@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 atlas-isa = { path = "../atlas-isa" }
+atlas-files = { path = "../atlas-files" }

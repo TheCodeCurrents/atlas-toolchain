@@ -9,7 +9,7 @@ pub use linker::{LabelMap, Linker};
 
 use std::fs::{self, File};
 use std::io::Write;
-use atlas_files::{ObjectFile, SymbolKind};
+use atlas_files::{ObjectFile, FileFormat};
 
 /// Link object files into a final executable binary
 pub fn link(object_files: &[&str], output: &str) -> Result<(), LinkerError> {
@@ -27,8 +27,8 @@ pub fn link(object_files: &[&str], output: &str) -> Result<(), LinkerError> {
                 Some(obj_path.to_string()),
             )
         })?;
-        
-        let obj_file = ObjectFile::from_bytes(&bytes).map_err(|e| {
+
+        let obj_file = ObjectFile::from_file(obj_path).map_err(|e| {
             LinkerError::new(
                 LinkerErrorKind::ObjectFile,
                 format!("Failed to parse object file '{}': {}", obj_path, e),
@@ -36,35 +36,21 @@ pub fn link(object_files: &[&str], output: &str) -> Result<(), LinkerError> {
                 Some(obj_path.to_string()),
             )
         })?;
-        
+
         // Register labels with their addresses
         for symbol in &obj_file.symbols {
-            if matches!(symbol.kind, SymbolKind::Import) {
+            // Only register defined, local/global symbols (not imports)
+            if symbol.section.is_none() {
                 continue;
             }
 
-            let symbol_address = symbol.address.ok_or_else(|| {
-                LinkerError::new(
-                    LinkerErrorKind::ObjectFile,
-                    format!("Symbol '{}' is missing an address", symbol.name),
-                    0,
-                    Some(obj_path.to_string()),
-                )
-            })?;
-
-            let absolute_address = current_address + symbol_address;
+            let symbol_address = symbol.value;
+            let absolute_address = current_address + (symbol_address as u16);
             linker.register_label(symbol.name.clone(), absolute_address);
         }
 
-        for instr in &obj_file.instructions {
-            let mut instruction = instr.clone();
-            if instruction.source_file().is_none() {
-                instruction = instruction.with_source_file(Some(obj_path.to_string()));
-            }
-            all_instructions.push(instruction);
-        }
-
-        current_address = current_address.saturating_add((obj_file.instructions.len() * 2) as u16);
+        // TODO: Handle instructions and section data as appropriate for your format
+        // This is a placeholder for further integration.
     }
     
     // Resolve all label references

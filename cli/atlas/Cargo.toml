@@ -8,5 +8,6 @@ atlas-isa = { path = "../../crates/atlas-isa" }
 atlas-assembler = { path = "../../crates/atlas-assembler" }
 atlas-linker = { path = "../../crates/atlas-linker" }
 atlas-files = { path = "../../crates/atlas-files" }
+atlas-inspect = { path = "../../crates/atlas-inspect" }
 
 clap = { version = "4.5", features = ["derive"] }

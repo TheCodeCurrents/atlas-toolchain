@@ -6,6 +6,7 @@ members = [
     "crates/atlas-assembler",
     "crates/atlas-linker",
     "crates/atlas-inspect",
+    "crates/atlas-simulator",
     "cli/atlas",
 ]
 

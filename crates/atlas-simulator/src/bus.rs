@@ -1,32 +1,46 @@
-use crate::traits::{Bus, Device};
+use std::ops::Range;
 
-/// System bus that dispatches reads/writes to registered devices by address
-pub struct SystemBus {
-    devices: Vec<Box<dyn Device>>,
+use crate::system::{Addr, Data};
+
+pub struct BusMapping {
+    pub range: Range<Addr>,
+    pub device: Box<dyn BusDevice>,
 }
 
-impl SystemBus {
-    pub fn new() -> Self {
-        Self { devices: Vec::new() }
-    }
-
-    pub fn add_device(&mut self, device: Box<dyn Device>) {
-        self.devices.push(device);
-    }
+pub struct Bus {
+    pub mappings: Vec<BusMapping>,
 }
 
-impl Bus for SystemBus {
-    fn read(&self, addr: u32) -> u8 {
-        self.devices
-            .iter()
-            .find(|d| d.contains(addr))
-            .map(|d| d.read(addr))
-            .unwrap_or(0xFF)
+impl Bus {
+    pub fn read(&self, addr: Addr, size: usize) -> Data {
+
+        for mapping in &self.mappings {
+            if mapping.range.contains(&addr) {
+                return mapping.device.read(addr - mapping.range.start, size)
+            }
+        }
+
+        panic!("Bus fault at {:#x}", addr);
     }
 
-    fn write(&mut self, addr: u32, val: u8) {
-        if let Some(d) = self.devices.iter_mut().find(|d| d.contains(addr)) {
-            d.write(addr, val);
+    pub fn write(&mut self, addr: Addr, data: Data, size: usize) {
+
+        for mapping in &mut self.mappings {
+            if mapping.range.contains(&addr) {
+                mapping.device.write(addr - mapping.range.start, data);
+                return;
+            }
         }
     }
+}
+
+
+pub trait BusDevice {
+    fn read(&self, addr: Addr, size: usize) -> Data;
+    fn write(&mut self, addr: Addr, data: Data);
+}
+
+pub trait BusMaster {
+    fn read(&self, addr: Addr, size: usize) -> Data;
+    fn write(&mut self, addr: Addr, data: Data);
 }
